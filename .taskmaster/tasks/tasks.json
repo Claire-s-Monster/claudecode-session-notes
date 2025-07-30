@@ -1,0 +1,685 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "createdAt": "2025-07-30T18:55:00.000Z",
+    "lastModified": "2025-07-30T18:57:00.000Z",
+    "projectName": "session-notes-mcp-server",
+    "totalTasks": 28
+  },
+  "tags": {
+    "master": {
+      "tasks": {
+        "1": {
+          "id": 1,
+          "title": "Environment Setup and Dependency Configuration",
+          "description": "Set up TypeScript/Node.js build environment with FastMCP framework integration, configure package.json with required dependencies, set up tsconfig.json for TypeScript compilation, configure build scripts and development environment.",
+          "details": "Install Node.js 18+, TypeScript, FastMCP framework, configure build pipeline with proper module resolution, set up development scripts for building and testing. Ensure project can compile and basic imports work.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "foundation",
+            "setup"
+          ],
+          "dependencies": [],
+          "testStrategy": "Verify successful compilation, dependency resolution, and basic server instantiation without errors.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "2": {
+          "id": 2,
+          "title": "Project Setup and FastMCP Integration",
+          "description": "Implement core MCP server structure using FastMCP framework, create basic server class with protocol handling, set up TypeScript project structure with proper module exports.",
+          "details": "Create main server class extending FastMCP, implement basic request/response handling, set up proper TypeScript module structure, establish connection lifecycle management, create basic health check endpoint.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "foundation",
+            "mcp"
+          ],
+          "dependencies": [
+            1
+          ],
+          "testStrategy": "Server can start, accept connections, respond to basic MCP protocol messages, and handle graceful shutdown.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "3": {
+          "id": 3,
+          "title": "File-based Storage System Implementation",
+          "description": "Create directory structure for .claude/session-notes/<session-id>/ and implement file-based storage system with proper JSON serialization and error handling.",
+          "details": "Implement storage service with directory creation, JSON file operations, error handling for filesystem issues, atomic writes, backup mechanisms, and cleanup procedures. Create storage interface for future database migration.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "storage",
+            "filesystem"
+          ],
+          "dependencies": [
+            2
+          ],
+          "testStrategy": "Can create session directories, write/read JSON files reliably, handle concurrent access, and recover from filesystem errors.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "4": {
+          "id": 4,
+          "title": "Session Metadata Collection System",
+          "description": "Implement session ID generation, timestamp tracking, duration monitoring, and environment metadata collection for comprehensive session tracking.",
+          "details": "Create session manager with UUID generation, timestamp utilities, duration calculation, environment detection (platform, ClaudeCode version, working directory), and session lifecycle management with proper start/end events.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "session",
+            "metadata"
+          ],
+          "dependencies": [
+            3
+          ],
+          "testStrategy": "Can generate unique session IDs, track accurate timestamps and durations, collect environment metadata, and manage session lifecycle properly.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "5": {
+          "id": 5,
+          "title": "Basic Agent Logging Framework",
+          "description": "Create agent ID system and basic logging structure for tracking individual agent executions within sessions.",
+          "details": "Implement agent registry with unique ID generation, basic execution logging with timestamps and actions, agent-specific directory structure, and initial communication pattern tracking framework.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "agent",
+            "logging"
+          ],
+          "dependencies": [
+            4
+          ],
+          "testStrategy": "Can assign unique agent IDs, log basic agent actions with timestamps, organize logs by agent, and handle multiple concurrent agents.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "6": {
+          "id": 6,
+          "title": "Tool Usage Tracking System",
+          "description": "Implement tool invocation monitoring capturing tool names, parameters, success/failure status, and execution timing.",
+          "details": "Create tool usage monitor that intercepts tool calls, logs invocation details, tracks success/failure rates, measures execution times, and identifies tool usage patterns. Include parameter logging for analysis.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "tools",
+            "monitoring"
+          ],
+          "dependencies": [
+            5
+          ],
+          "testStrategy": "Can capture all tool invocations, log parameters and results accurately, track timing information, and handle tool failures gracefully.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "7": {
+          "id": 7,
+          "title": "CLI Query Interface",
+          "description": "Create command-line interface for accessing stored session data with basic query capabilities and formatted output.",
+          "details": "Implement CLI commands for listing sessions, viewing session details, querying agent logs, filtering by date/status, and formatting output for readability. Include help system and error handling.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "cli",
+            "interface"
+          ],
+          "dependencies": [
+            6
+          ],
+          "testStrategy": "CLI can list sessions, display detailed information, filter results, handle errors gracefully, and provide helpful usage information.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "8": {
+          "id": 8,
+          "title": "Server Registration and End-to-End Testing",
+          "description": "Ensure MCP server can be registered with ClaudeCode and verify complete end-to-end functionality from session capture to data retrieval.",
+          "details": "Create MCP server configuration, test registration with ClaudeCode, verify session data capture works during real development sessions, validate data integrity, and confirm CLI access works properly.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "integration",
+            "testing"
+          ],
+          "dependencies": [
+            7
+          ],
+          "testStrategy": "Server registers successfully with ClaudeCode, captures real session data, stores data correctly, and CLI can retrieve and display the information.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 1 - Foundation"
+        },
+        "9": {
+          "id": 9,
+          "title": "Detailed Agent Interaction Tracking",
+          "description": "Implement comprehensive communication pattern capture and decision flow logging for advanced agent analytics.",
+          "details": "Extend agent logging to capture detailed interaction patterns, communication flows between agents, decision trees, context switching, and performance metrics. Include interaction timing and dependency analysis.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "agent",
+            "analytics"
+          ],
+          "dependencies": [
+            8
+          ],
+          "testStrategy": "Can track complex agent interactions, identify communication patterns, log decision processes, and measure interaction performance accurately.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 2 - Analytics"
+        },
+        "10": {
+          "id": 10,
+          "title": "Tool Request Analysis System",
+          "description": "Create comprehensive tool monitoring including missing tool detection and usage pattern analysis.",
+          "details": "Implement advanced tool request tracking, failed tool request detection, missing tool identification, tool combination analysis, and recommendation generation for improving tool availability.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "tools",
+            "analysis"
+          ],
+          "dependencies": [
+            9
+          ],
+          "testStrategy": "Can detect when agents request unavailable tools, identify missing tool patterns, analyze tool combinations, and generate useful recommendations.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 2 - Analytics"
+        },
+        "11": {
+          "id": 11,
+          "title": "Agent Performance Metrics System",
+          "description": "Add execution time tracking, efficiency measurements, and performance optimization insights for agent operations.",
+          "details": "Implement comprehensive performance monitoring including execution time tracking, memory usage monitoring, success rate calculation, bottleneck identification, and performance trend analysis.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "performance",
+            "metrics"
+          ],
+          "dependencies": [
+            10
+          ],
+          "testStrategy": "Can measure agent performance accurately, identify bottlenecks, track performance trends, and provide actionable optimization insights.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 2 - Analytics"
+        },
+        "12": {
+          "id": 12,
+          "title": "Prime Context Usage Monitoring",
+          "description": "Track context access patterns and tuning requirements for optimizing agent prime context usage.",
+          "details": "Implement context usage tracking, access pattern analysis, context efficiency measurement, tuning recommendation generation, and context optimization insights for better agent performance.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "context",
+            "optimization"
+          ],
+          "dependencies": [
+            11
+          ],
+          "testStrategy": "Can track context usage patterns, identify inefficient context access, measure context effectiveness, and provide tuning recommendations.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 2 - Analytics"
+        },
+        "13": {
+          "id": 13,
+          "title": "Cross-Session Pattern Analysis",
+          "description": "Implement workflow identification across multiple sessions and pattern recognition for development workflow optimization.",
+          "details": "Create pattern recognition algorithms, workflow classification system, cross-session correlation analysis, common pattern identification, and workflow optimization recommendations.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "patterns",
+            "workflow"
+          ],
+          "dependencies": [
+            12
+          ],
+          "testStrategy": "Can identify recurring workflows, classify development patterns, correlate activities across sessions, and provide workflow optimization insights.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 2 - Analytics"
+        },
+        "14": {
+          "id": 14,
+          "title": "Missing Tool Recommendation Engine",
+          "description": "Generate intelligent suggestions for tools that would improve development workflows based on usage patterns and failed requests.",
+          "details": "Implement recommendation algorithms, tool gap analysis, priority scoring for missing tools, integration effort estimation, and automated recommendation reporting for development team improvements.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "recommendations",
+            "tools"
+          ],
+          "dependencies": [
+            13
+          ],
+          "testStrategy": "Can generate relevant tool recommendations, prioritize suggestions effectively, estimate implementation effort, and provide actionable improvement plans.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 2 - Analytics"
+        },
+        "15": {
+          "id": 15,
+          "title": "Statistical Analysis Engine",
+          "description": "Implement pattern recognition algorithms for workflow analysis and statistical reporting capabilities.",
+          "details": "Create statistical analysis framework, pattern recognition algorithms, data mining capabilities, trend identification, correlation analysis, and statistical reporting with visualization support.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "statistics",
+            "analysis"
+          ],
+          "dependencies": [
+            14
+          ],
+          "testStrategy": "Can perform statistical analysis on session data, identify significant patterns, calculate meaningful correlations, and generate insightful statistical reports.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 3 - Reporting"
+        },
+        "16": {
+          "id": 16,
+          "title": "Agent Performance Reporting System",
+          "description": "Create comprehensive metrics and efficiency reports for agent performance optimization.",
+          "details": "Implement performance reporting framework, efficiency metrics calculation, comparative analysis, benchmarking system, and performance optimization recommendations with detailed reporting capabilities.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "reporting",
+            "performance"
+          ],
+          "dependencies": [
+            15
+          ],
+          "testStrategy": "Can generate comprehensive performance reports, compare agent efficiency, provide benchmarking data, and deliver actionable optimization recommendations.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 3 - Reporting"
+        },
+        "17": {
+          "id": 17,
+          "title": "Tool Usage Optimization System",
+          "description": "Generate recommendations for improving tool selection and usage patterns based on historical analysis.",
+          "details": "Implement tool usage analysis, optimization recommendation engine, usage pattern optimization, tool combination suggestions, and efficiency improvement recommendations for better development workflows.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "optimization",
+            "tools"
+          ],
+          "dependencies": [
+            16
+          ],
+          "testStrategy": "Can analyze tool usage patterns, identify optimization opportunities, recommend better tool combinations, and provide efficiency improvement strategies.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 3 - Reporting"
+        },
+        "18": {
+          "id": 18,
+          "title": "Workflow Pattern Recognition System",
+          "description": "Implement classification system for common development patterns and workflow optimization insights.",
+          "details": "Create workflow classification algorithms, pattern recognition system, development workflow categorization, pattern matching capabilities, and workflow optimization recommendations based on identified patterns.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "patterns",
+            "classification"
+          ],
+          "dependencies": [
+            17
+          ],
+          "testStrategy": "Can classify development workflows accurately, recognize common patterns, match similar workflows, and provide pattern-based optimization recommendations.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 3 - Reporting"
+        },
+        "19": {
+          "id": 19,
+          "title": "Trend Analysis System",
+          "description": "Add historical analysis and predictive insights across multiple timeframes for development trend identification.",
+          "details": "Implement trend analysis algorithms, historical data processing, predictive analytics capabilities, time-series analysis, and trend-based forecasting for development workflow improvements.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "trends",
+            "prediction"
+          ],
+          "dependencies": [
+            18
+          ],
+          "testStrategy": "Can identify development trends accurately, analyze historical patterns, provide predictive insights, and generate trend-based recommendations.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 3 - Reporting"
+        },
+        "20": {
+          "id": 20,
+          "title": "Advanced Reporting Framework",
+          "description": "Create comprehensive reporting system with multiple output formats and advanced visualization capabilities.",
+          "details": "Implement advanced reporting engine, multiple output formats (JSON, HTML, PDF), data visualization capabilities, interactive reports, scheduled reporting, and custom report generation features.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "reporting",
+            "visualization"
+          ],
+          "dependencies": [
+            19
+          ],
+          "testStrategy": "Can generate reports in multiple formats, create visualizations, support interactive exploration, handle scheduled reporting, and provide customizable report templates.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 3 - Reporting"
+        },
+        "21": {
+          "id": 21,
+          "title": "Database Schema Design",
+          "description": "Design PostgreSQL/SQLite schema for production-scale storage and efficient querying capabilities.",
+          "details": "Create comprehensive database schema design, optimize for query performance, implement proper indexing strategy, design for scalability, and plan migration from file-based storage to database.",
+          "priority": "low",
+          "status": "pending",
+          "tags": [
+            "database",
+            "schema"
+          ],
+          "dependencies": [
+            20
+          ],
+          "testStrategy": "Database schema supports all current features, provides good query performance, scales appropriately, and migration path is clear and reliable.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 4 - Scalability"
+        },
+        "22": {
+          "id": 22,
+          "title": "Data Migration Tools",
+          "description": "Create utilities to migrate from file-based to database storage with data integrity verification.",
+          "details": "Implement migration scripts, data validation tools, integrity checking, rollback capabilities, and automated migration process with progress tracking and error handling.",
+          "priority": "low",
+          "status": "pending",
+          "tags": [
+            "migration",
+            "tools"
+          ],
+          "dependencies": [
+            21
+          ],
+          "testStrategy": "Can migrate existing file-based data to database completely, verify data integrity, handle migration errors gracefully, and provide rollback capabilities.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 4 - Scalability"
+        },
+        "23": {
+          "id": 23,
+          "title": "API Performance Optimization",
+          "description": "Implement caching and optimize query performance for production-scale usage.",
+          "details": "Implement caching layer, query optimization, connection pooling, response compression, and performance monitoring for production-grade API performance and scalability.",
+          "priority": "low",
+          "status": "pending",
+          "tags": [
+            "performance",
+            "optimization"
+          ],
+          "dependencies": [
+            22
+          ],
+          "testStrategy": "API performs well under load, caching works effectively, queries are optimized, and system scales appropriately with increased usage.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 4 - Scalability"
+        },
+        "24": {
+          "id": 24,
+          "title": "Multi-user Session Isolation",
+          "description": "Add security and user separation capabilities for team environments.",
+          "details": "Implement user authentication, session isolation, access control, data privacy, and multi-tenant support with proper security measures and audit logging.",
+          "priority": "low",
+          "status": "pending",
+          "tags": [
+            "security",
+            "multi-user"
+          ],
+          "dependencies": [
+            23
+          ],
+          "testStrategy": "Users can only access their own sessions, authentication works properly, data privacy is maintained, and audit logging captures security events.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 4 - Scalability"
+        },
+        "25": {
+          "id": 25,
+          "title": "Real-time Monitoring and Alerting",
+          "description": "Implement monitoring and alerting capabilities for production usage and system health.",
+          "details": "Create monitoring dashboard, health check endpoints, alerting system, performance metrics collection, error tracking, and system status reporting for production operations.",
+          "priority": "low",
+          "status": "pending",
+          "tags": [
+            "monitoring",
+            "alerting"
+          ],
+          "dependencies": [
+            24
+          ],
+          "testStrategy": "Monitoring captures system health accurately, alerts fire appropriately, performance metrics are collected, and system status is clearly visible.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Phase 4 - Scalability"
+        },
+        "26": {
+          "id": 26,
+          "title": "Comprehensive Testing Framework",
+          "description": "Implement unit tests, integration tests, and MCP protocol compliance tests for reliable system operation.",
+          "details": "Create comprehensive test suite including unit tests, integration tests, MCP protocol compliance tests, performance tests, and automated testing pipeline with coverage reporting.",
+          "priority": "high",
+          "status": "pending",
+          "tags": [
+            "testing",
+            "quality"
+          ],
+          "dependencies": [
+            4
+          ],
+          "testStrategy": "Test suite provides comprehensive coverage, catches regressions effectively, validates MCP protocol compliance, and runs efficiently in CI/CD pipeline.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Cross-cutting"
+        },
+        "27": {
+          "id": 27,
+          "title": "Documentation and Deployment Guide",
+          "description": "Create setup guides, API documentation, and deployment procedures for production usage.",
+          "details": "Write comprehensive documentation including setup instructions, API reference, deployment guide, troubleshooting guide, and usage examples for developers and operations teams.",
+          "priority": "medium",
+          "status": "pending",
+          "tags": [
+            "documentation",
+            "deployment"
+          ],
+          "dependencies": [
+            25,
+            26
+          ],
+          "testStrategy": "Documentation is complete, accurate, and enables users to successfully set up and use the system without additional support.",
+          "createdAt": "2025-07-30T18:57:00.000Z",
+          "phase": "Cross-cutting"
+        }
+      },
+      "metadata": {
+        "createdAt": "2025-07-30T18:57:00.000Z",
+        "description": "Main development tag for session-notes MCP server",
+        "totalTasks": 27,
+        "completedTasks": 0,
+        "pendingTasks": 27
+      }
+    }
+  },
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Core MCP Server Infrastructure",
+        "description": "Initialize a new Python project and set up the basic FastMCP 2.0 server, which will serve as the foundation for all other features.",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Use Python and the FastMCP 2.0 framework. Set up the project structure according to PIXI conventions, including pyproject.toml configuration. Create the main server entry point at src/session_notes/server.py, using FastMCP 2.0's decorator-based API (@mcp.tool(), @mcp.resource()). Add 'fastmcp >= 2.0.0' as a dependency in pyproject.toml. Ensure the server can start and be registered with ClaudeCode using stdio transport. Provide a CLI entry point for server startup.",
+        "testStrategy": "Verify the server starts without errors using the CLI entry point. Use the existing MCP quality framework to test server startup and MCP protocol compliance. Use a simple MCP client to connect to the server and confirm it is discoverable and responsive via stdio transport.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Python project with PIXI configuration",
+            "description": "Set up the Python project structure, including pyproject.toml and PIXI configuration files. Add 'fastmcp >= 2.0.0' as a dependency.",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Create main server entry point using FastMCP 2.0 decorators",
+            "description": "Implement src/session_notes/server.py as the main entry point. Use FastMCP 2.0's @mcp.tool() and @mcp.resource() decorators to define at least one tool and one resource.",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Add CLI entry point for server startup",
+            "description": "Provide a CLI command to start the MCP server, ensuring it uses stdio transport and is compatible with ClaudeCode registration.",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Test server startup and MCP protocol compliance",
+            "description": "Use the existing MCP quality framework to verify that the server starts, is MCP protocol compliant, and can be discovered and interacted with by a simple MCP client.",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Implement File-Based Storage Layer",
+        "description": "Create the file system logic for storing session data according to the specified hierarchical structure.",
+        "details": "Implement functions to create and manage directories based on the pattern `.claude/session-notes/<session-id>/agents/<agent-id>/`. All data should be written in JSON format.",
+        "testStrategy": "Write unit tests for creating, reading, updating, and deleting session directories and files. Verify the correct directory structure is generated for a mock session.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Define and Implement Core Data Models",
+        "description": "Create TypeScript interfaces or classes for the Session and Agent data models as specified in the PRD.",
+        "details": "Implement the `SessionModel` and `AgentModel` structures, ensuring they are serializable to JSON. Include all specified fields like `sessionId`, `timestamp`, `agentId`, and `interactions`.",
+        "testStrategy": "Create unit tests for each model to verify type validation and correct serialization/deserialization to and from JSON strings.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement Session Metadata Collection",
+        "description": "Implement the logic to automatically capture and store core session metadata, such as ID, timestamp, and duration.",
+        "details": "Hook into ClaudeCode session lifecycle events to collect `sessionId`, `timestamp`, `duration`, and `environment` details. Store this information in `session.json` within the corresponding session directory.",
+        "testStrategy": "Trigger a mock session start and end event. Verify that a `session.json` file is created in the correct directory with accurate data.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Basic Agent Logging Framework",
+        "description": "Track individual agent executions within a session by assigning unique IDs and creating dedicated log files.",
+        "details": "For each agent, create an agent-specific subdirectory. Log basic execution data, such as the agent's ID and type, to an `execution.json` file within its directory.",
+        "testStrategy": "Simulate a session with multiple agents and verify that corresponding agent subdirectories and `execution.json` files are created correctly.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement Simple Tool Usage Tracking",
+        "description": "Log all tool invocation events during a session, including the tool name and its success or failure status.",
+        "details": "Capture tool usage data and append it to a `tools.json` file within the session directory. This is the MVP version focusing on basic tracking as per Phase 1.",
+        "testStrategy": "Mock several tool invocation events (both successful and failed) and check that they are correctly appended as an array to the `tools.json` log.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Develop CLI for Session Data Querying",
+        "description": "Create a command-line interface for users to query the collected session data from the file system.",
+        "details": "The CLI should support commands to list all captured sessions (`sessions/list`) and retrieve the full data for a specific session ID (`sessions/get/{id}`). Output should be available in human-readable and JSON formats.",
+        "testStrategy": "Run CLI commands against a directory of mock session data files and verify that the output is correct and properly formatted for both list and get commands.",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          5,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Implement Core MCP Protocol Endpoints",
+        "description": "Expose the data access layer through the specified MCP protocol endpoints to allow integration with ClaudeCode.",
+        "details": "Implement the `notes://sessions/list` and `notes://sessions/get/{id}` endpoints on the FastMCP server. These endpoints should use the logic from the data access layer to serve the requests.",
+        "testStrategy": "Use an MCP client to connect to the server and call the new endpoints. Verify that the correct JSON data is returned and that the responses conform to the data models.",
+        "priority": "high",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement Detailed Agent Interaction Tracking",
+        "description": "Enhance the agent logger to capture detailed communication patterns, actions, and performance metrics as defined in Phase 2.",
+        "details": "Expand the `AgentModel` to include the full `interactions` array. Log each interaction with its timestamp, action, parameters, result, and execution time to `interactions.json`.",
+        "testStrategy": "Simulate a sequence of agent actions and verify the `interactions.json` log contains a detailed, ordered list of events with all required fields populated.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Implement Missing Tool Detection",
+        "description": "Identify and log instances where an agent attempts to use a tool that is not available in its environment.",
+        "details": "Enhance the `toolRequests` data structure in the `AgentModel` to include an `available: boolean` field. When a tool request fails because the tool is missing, log this event specifically.",
+        "testStrategy": "Simulate an agent request for a non-existent tool. Verify the event is logged correctly with `available: false` and `success: false`. Test a new `notes://tools/missing` endpoint to retrieve this information.",
+        "priority": "low",
+        "dependencies": [
+          6,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-30T19:02:41.449Z",
+      "updated": "2025-07-30T20:22:38.544Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

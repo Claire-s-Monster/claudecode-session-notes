@@ -1,0 +1,402 @@
+<context>
+# Overview
+The session-notes MCP server is a specialized Model Context Protocol (MCP) server designed to facilitate comprehensive collection and analysis of ClaudeCode session workbooks. This server addresses the critical need for understanding AI agent behavior, identifying missing tools and capabilities, and optimizing agent communication patterns during development sessions.
+
+The primary problem this solves is the lack of visibility into how AI agents interact, what tools they need but don't have access to, and how development sessions progress. This information is crucial for improving agent performance, identifying gaps in tooling, and understanding workflow patterns for better AI-assisted development.
+
+Target users include:
+- AI development framework maintainers
+- ClaudeCode users seeking to optimize their workflows
+- Researchers studying AI agent behavior patterns
+- Development teams analyzing AI-assisted coding efficiency
+
+# Core Features
+
+## Session Workbook Collection
+- Automatically captures session metadata, tool usage, and agent interactions
+- Stores structured session data in organized file hierarchies
+- Tracks session duration, tool invocation patterns, and outcome metrics
+- Enables retrospective analysis of development sessions
+
+## Agent Logging Framework
+- Individual agent execution tracking with unique agent IDs
+- Captures agent communication patterns and decision trees
+- Logs tool requests, successes, failures, and missing tool scenarios
+- Records prime context usage and tuning requirements
+
+## Missing Tool Detection
+- Identifies tools that agents attempt to use but aren't available
+- Catalogs script requests that couldn't be fulfilled
+- Tracks MCP server capabilities that would improve workflow
+- Generates recommendations for tooling improvements
+
+## Analytics and Reporting
+- Session pattern analysis and workflow optimization insights
+- Agent performance metrics and communication efficiency reports
+- Tool usage statistics and missing capability analysis
+- Development velocity and quality correlation studies
+
+# User Experience
+
+## User Personas
+**Primary Persona: AI Framework Developer**
+- Needs to understand how agents perform in real development scenarios
+- Requires data to improve agent prompt engineering and tool selection
+- Wants insights into common failure patterns and missing capabilities
+
+**Secondary Persona: ClaudeCode User**
+- Seeks to optimize their development workflow with AI assistance
+- Needs visibility into session progress and agent efficiency
+- Wants recommendations for improving AI-assisted development practices
+
+## Key User Flows
+1. **Automatic Session Capture**: Sessions are logged transparently without user intervention
+2. **Session Analysis**: Users can query session data to understand patterns and performance
+3. **Tool Gap Analysis**: Users can identify missing tools that would improve their workflow
+4. **Performance Tuning**: Users can access recommendations for optimizing agent interactions
+
+## UI/UX Considerations
+- CLI-based interface for integration with existing ClaudeCode workflows
+- JSON-based data exchange for programmatic access
+- Future web dashboard for visual analytics and reporting
+- Minimal performance impact on active development sessions
+</context>
+
+<PRD>
+# Technical Architecture
+
+## System Components
+
+### MCP Server Core
+- FastMCP 2.0-based server implementation with Python
+- Decorator-based development pattern for 60-70% faster implementation
+- RESTful API endpoints for session data management
+- WebSocket support for real-time session monitoring
+- Plugin architecture for extensible data collection
+- State-of-the-art MCP server framework with modern Python patterns
+
+### Data Collection Engine
+- Session metadata collector (timestamps, user, environment)
+- Agent interaction tracker (communication patterns, decision flows)
+- Tool usage monitor (invocations, parameters, success/failure rates)
+- Missing capability detector (failed tool requests, script needs)
+
+### Storage Layer
+- File-based storage system with hierarchical organization
+- JSON-based data format for easy parsing and analysis
+- Structured directory layout: `.claude/session-notes/<session-id>/`
+- Agent-specific logging: `.claude/session-notes/<session-id>/agents/<agent-id>/`
+
+### Analytics Engine
+- Pattern recognition algorithms for workflow analysis
+- Statistical reporting for agent performance metrics
+- Trend analysis for tool usage and missing capabilities
+- Recommendation engine for workflow optimization
+
+## Data Models
+
+### Session Model
+```json
+{
+  "sessionId": "uuid",
+  "timestamp": "ISO8601",
+  "duration": "seconds",
+  "environment": {
+    "platform": "string",
+    "claudeCodeVersion": "string",
+    "workingDirectory": "path"
+  },
+  "agents": ["agent-id-list"],
+  "toolsUsed": ["tool-name-list"],
+  "outcomes": {
+    "tasksCompleted": "number",
+    "errorsEncountered": "number",
+    "qualityChecks": "object"
+  }
+}
+```
+
+### Agent Model
+```json
+{
+  "agentId": "uuid",
+  "agentType": "string",
+  "sessionId": "uuid",
+  "interactions": [{
+    "timestamp": "ISO8601",
+    "action": "string",
+    "parameters": "object",
+    "result": "object",
+    "executionTime": "milliseconds"
+  }],
+  "toolRequests": [{
+    "toolName": "string",
+    "available": "boolean",
+    "parameters": "object",
+    "success": "boolean"
+  }],
+  "contextUsage": {
+    "primeContextAccess": "number",
+    "tuningRequests": "array"
+  }
+}
+```
+
+### Analytics Model
+```json
+{
+  "reportId": "uuid",
+  "dateRange": "object",
+  "sessionCount": "number",
+  "patterns": {
+    "commonWorkflows": "array",
+    "frequentToolCombinations": "array",
+    "agentCommunicationPatterns": "array"
+  },
+  "recommendations": {
+    "missingTools": "array",
+    "workflowOptimizations": "array",
+    "agentTuning": "array"
+  }
+}
+```
+
+## APIs and Integrations
+
+### MCP Protocol Endpoints
+- `notes://sessions/list` - List all captured sessions
+- `notes://sessions/get/{id}` - Retrieve specific session data
+- `notes://agents/list/{sessionId}` - List agents for a session
+- `notes://agents/get/{agentId}` - Retrieve agent execution logs
+- `notes://analytics/report` - Generate analytics reports
+- `notes://tools/missing` - Get missing tool recommendations
+
+### Integration Points
+- ClaudeCode session hooks for automatic data collection
+- Git integration for correlating code changes with session data
+- CI/CD pipeline integration for quality correlation analysis
+- Future database migration endpoints for scalability
+
+## FastMCP 2.0 Architecture Benefits
+
+### Decorator-Based Development Pattern
+- **60-70% faster implementation** compared to traditional MCP server development
+- Type-safe decorator patterns for resource definitions and tool handlers
+- Automatic JSON-RPC 2.0 protocol handling with minimal boilerplate
+- Built-in error handling and validation for MCP protocol compliance
+
+### Python Ecosystem Integration
+- **Seamless PIXI integration** for dependency management and environment isolation
+- Modern Python patterns with full type hinting support
+- Native async/await support for high-performance concurrent operations
+- Rich ecosystem of Python libraries for data analysis and processing
+
+### Development Velocity Advantages
+- **Rapid prototyping** with decorator-based resource and tool definitions
+- **Hot reloading** during development for faster iteration cycles
+- **Comprehensive testing framework** built into FastMCP 2.0
+- **Production-ready deployment** with minimal configuration changes
+
+## Infrastructure Requirements
+- Python 3.12+ runtime environment with FastMCP 2.0 framework
+- PIXI-based development environment for dependency management
+- File system access for data storage
+- Network access for MCP protocol communication
+- Optional: Database connection for future migration path
+- Integration with existing Python-based PIXI ecosystem
+
+# Development Roadmap
+
+## Phase 1: Core MCP Server Foundation
+**MVP Requirements:**
+- Basic MCP server setup with FastMCP 2.0 framework using Python decorators
+- PIXI-based project configuration with pyproject.toml
+- File-based storage implementation with session directory structure
+- Core session metadata collection (ID, timestamp, duration)
+- Basic agent logging framework with unique agent IDs
+- Simple tool usage tracking (tool name, success/failure)
+- CLI interface for querying stored session data
+- Leverage FastMCP 2.0's decorator patterns for rapid development
+
+**Deliverables:**
+- Functional Python-based MCP server that can be registered with ClaudeCode
+- Session data capture and storage working end-to-end
+- Basic query capabilities for accessing stored data
+- Documentation for server setup and configuration
+- PIXI environment configuration for development and distribution
+
+## Phase 2: Advanced Agent Analytics
+**Enhanced Capabilities:**
+- Detailed agent interaction tracking with communication patterns
+- Tool request analysis including missing tool detection
+- Agent performance metrics and execution time tracking
+- Prime context usage monitoring and tuning recommendations
+- Cross-session pattern analysis and workflow identification
+
+**Deliverables:**
+- Comprehensive agent logging with detailed execution traces
+- Missing tool detection and recommendation system
+- Basic analytics reporting for session patterns
+- Performance optimization insights for agent usage
+
+## Phase 3: Analytics and Reporting Engine
+**Advanced Features:**
+- Statistical analysis of development session patterns
+- Tool usage optimization recommendations
+- Agent communication efficiency metrics
+- Workflow pattern recognition and classification
+- Trend analysis across multiple sessions and timeframes
+
+**Deliverables:**
+- Advanced analytics engine with pattern recognition
+- Comprehensive reporting system for session insights
+- Recommendation engine for workflow optimization
+- Historical trend analysis and predictive insights
+
+## Phase 4: Database Migration and Scalability
+**Production-Ready Features:**
+- Database backend implementation (PostgreSQL/SQLite)
+- Data migration tools from file-based to database storage
+- API performance optimization and caching
+- Multi-user session isolation and security
+- Real-time monitoring and alerting capabilities
+
+**Deliverables:**
+- Scalable database-backed storage solution
+- Migration tools and procedures for existing data
+- Production-grade performance and security features
+- Multi-tenant support for team environments
+
+# Logical Dependency Chain
+
+## Foundation Layer (Phase 1)
+1. **MCP Server Infrastructure** - Core server setup must be established first
+2. **Storage System** - File-based storage provides immediate data persistence
+3. **Session Capture** - Basic session metadata collection enables all other features
+4. **Data Access Layer** - Query capabilities provide immediate value and testing framework
+
+## Data Collection Layer (Phase 2)
+5. **Agent Framework** - Builds on session capture to provide detailed agent tracking
+6. **Tool Monitoring** - Extends basic tool usage to comprehensive tool analysis
+7. **Missing Tool Detection** - Analyzes tool usage patterns to identify gaps
+8. **Communication Tracking** - Captures agent interaction patterns for optimization
+
+## Intelligence Layer (Phase 3)
+9. **Pattern Recognition** - Analyzes collected data to identify workflow patterns
+10. **Analytics Engine** - Processes patterns into actionable insights
+11. **Recommendation System** - Generates optimization suggestions based on analysis
+12. **Reporting Framework** - Presents insights in useful formats for users
+
+## Scalability Layer (Phase 4)
+13. **Database Design** - Prepares for production-scale data management
+14. **Migration Tools** - Enables transition from file-based to database storage
+15. **Performance Optimization** - Ensures system scales with increased usage
+16. **Production Features** - Adds security, monitoring, and multi-user support
+
+# Risks and Mitigations
+
+## Technical Challenges
+
+**Risk: Performance Impact on Active Sessions**
+- Mitigation: Asynchronous data collection with minimal blocking operations
+- Mitigation: Configurable logging levels to balance detail vs. performance
+- Mitigation: Background data processing to avoid session interruption
+
+**Risk: Data Storage Growth**
+- Mitigation: Configurable retention policies with automatic cleanup
+- Mitigation: Data compression for older sessions
+- Mitigation: Optional cloud storage integration for long-term archival
+
+**Risk: MCP Protocol Compatibility**
+- Mitigation: Comprehensive testing with different ClaudeCode versions
+- Mitigation: Versioned API design for backward compatibility
+- Mitigation: Fallback mechanisms for unsupported protocol features
+
+## MVP Scoping Challenges
+
+**Risk: Feature Creep in Early Phases**
+- Mitigation: Strict adherence to MVP requirements with clear phase boundaries
+- Mitigation: User feedback integration points to validate direction before expansion
+- Mitigation: Modular architecture allowing feature addition without core changes
+
+**Risk: Complex Analytics Before Sufficient Data**
+- Mitigation: Start with simple metrics and gradually add sophistication
+- Mitigation: Synthetic test data generation for algorithm development
+- Mitigation: Progressive enhancement approach with each phase building value
+
+## Resource Constraints
+
+**Risk: Development Complexity**
+- Mitigation: Leverage FastMCP 2.0's decorator-based patterns for 60-70% faster development
+- Mitigation: Use proven Python patterns from other MCP server implementations
+- Mitigation: PIXI-based development environment reduces dependency management complexity
+- Mitigation: Incremental development with working software at each phase
+
+**Risk: Testing and Validation**
+- Mitigation: Automated testing framework from Phase 1
+- Mitigation: Integration testing with real ClaudeCode sessions
+- Mitigation: User acceptance testing with actual workflow scenarios
+
+# Appendix
+
+## Research Findings
+
+### MCP Protocol Analysis
+- FastMCP 2.0 provides state-of-the-art foundation for Python-based servers
+- Decorator-based development patterns reduce boilerplate by 60-70%
+- JSON-RPC 2.0 messaging enables reliable client-server communication
+- Resource-based architecture aligns well with session data organization
+- Transport layer abstraction supports future protocol enhancements
+- Modern Python patterns and type safety with FastMCP 2.0 framework
+
+### ClaudeCode Integration Points
+- Session lifecycle hooks available for automatic data collection
+- Agent communication patterns follow predictable request-response flows
+- Tool invocation metadata readily accessible through existing APIs
+- Git integration provides natural correlation points for session outcomes
+
+### Storage Architecture Considerations
+- File-based storage provides immediate implementation simplicity
+- Hierarchical directory structure aligns with session-agent relationships
+- JSON format enables easy parsing and future migration to databases
+- Directory-per-session approach supports efficient cleanup and archival
+
+## Technical Specifications
+
+### File Structure Design
+```
+.claude/session-notes/
+├── sessions.index.json          # Session registry and metadata
+├── <session-id>/
+│   ├── session.json            # Session metadata and summary
+│   ├── tools.json              # Tool usage log
+│   ├── agents/
+│   │   ├── <agent-id>/
+│   │   │   ├── execution.json  # Agent execution log
+│   │   │   ├── interactions.json # Agent communication log
+│   │   │   └── context.json    # Prime context usage
+│   │   └── communications.json # Inter-agent communications
+│   └── analytics/
+│       ├── patterns.json       # Identified workflow patterns
+│       └── recommendations.json # Generated recommendations
+└── reports/
+    ├── daily/                  # Daily analytics reports
+    ├── weekly/                 # Weekly trend analysis
+    └── custom/                 # User-generated reports
+
+# Note: This file structure is managed by Python-based FastMCP 2.0 server
+# with PIXI environment for dependency and runtime management
+```
+
+### Performance Requirements
+- Session data collection latency: <10ms per operation
+- Query response time: <100ms for basic queries, <1s for analytics
+- Storage efficiency: <1MB per average development session
+- Memory usage: <50MB baseline, <100MB during active analytics processing
+
+### Security Considerations
+- No sensitive code content stored, only metadata and patterns
+- Session isolation through directory-based access control
+- Optional encryption for sensitive development environments
+- Audit logging for all data access and modification operations
+</PRD>
