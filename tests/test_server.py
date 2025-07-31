@@ -549,11 +549,14 @@ class TestIntegrationWorkflows:
         end_time = datetime(2024, 1, 15, 11, 0, 0, tzinfo=UTC)
 
         mock_datetime.now.side_effect = [
-            start_time,
-            start_time,
-            start_time,
-            end_time,
-            end_time,
+            start_time,  # start_session call 1
+            start_time,  # start_session call 2
+            start_time,  # log_agent_execution call
+            start_time,  # log_tool_request call
+            end_time,  # end_session call 1
+            end_time,  # end_session call 2 (calculate_session_metrics)
+            end_time,  # additional calls if needed
+            end_time,  # additional calls if needed
         ]
         mock_datetime.fromisoformat.return_value = start_time
 
