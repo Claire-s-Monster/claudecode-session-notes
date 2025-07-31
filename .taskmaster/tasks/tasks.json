@@ -589,15 +589,79 @@
       {
         "id": 14,
         "title": "Implement Basic Agent Logging Framework",
-        "description": "Establish the framework for tracking individual agent executions. This involves creating agent-specific log files and an endpoint to receive agent data.",
-        "details": "Create a mechanism to assign and track unique agent IDs within a session. Implement an endpoint to log agent creation and store basic agent metadata in the `.../agents/<agent-id>/` directory structure. This sets the foundation for detailed interaction tracking.",
-        "testStrategy": "Simulate the creation of multiple agents within a session. Verify that a unique directory is created for each agent and that their basic metadata is logged correctly.",
-        "priority": "medium",
+        "description": "Established a comprehensive framework for tracking individual agent executions. This includes a robust data model, agent registration, a dedicated file storage structure, and API endpoints for managing and retrieving agent data.",
+        "status": "done",
         "dependencies": [
           13
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "medium",
+        "details": "The implementation provides a complete agent lifecycle management system within a session. Key features include: a detailed `AgentMetadata` model, a `register_agent` tool for explicit creation, auto-registration for on-the-fly logging, and integration with the session data model. The system creates a unique directory (`.../agents/<agent-id>/`) for each agent, storing `metadata.json`, `execution.json`, and `tools.json`. This provides a solid foundation for advanced interaction and performance tracking.",
+        "testStrategy": "Verified the implementation with a comprehensive suite of 24 new unit tests. Tests covered the AgentMetadata model, agent registration (including auto-ID generation and validation), metadata retrieval with real-time statistics, auto-registration during execution logging, activity tracking, and session data integration.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create a comprehensive Pydantic model (AgentMetadata) for agent data.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement the 'register_agent' FastMCP tool for explicit agent registration and directory creation.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Establish the agent-specific file storage structure with metadata.json, execution.json, and tools.json.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Enhance 'log_agent_execution' to support auto-registration of unknown agents.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Integrate agent data into the main session object for unified access.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Add new API tools (get_agent_metadata) and resources (agent://, agents://) for data retrieval.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement an activity tracking system to provide real-time agent statistics.",
+            "description": "",
+            "status": "done",
+            "dependencies": [],
+            "details": "",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 15,
@@ -683,7 +747,7 @@
     ],
     "metadata": {
       "created": "2025-07-30T19:02:41.449Z",
-      "updated": "2025-07-31T03:09:25.065Z",
+      "updated": "2025-07-31T16:30:46.113Z",
       "description": "Tasks for master context"
     }
   }

@@ -9,9 +9,9 @@ automatic environment detection, metadata updates, and comprehensive metrics cal
 import json
 import os
 import tempfile
+import time
 from pathlib import Path
 from unittest import TestCase
-import time
 
 import pytest
 
@@ -107,7 +107,7 @@ class TestComprehensiveMetadata(TestCase):
 
     def test_start_session_with_comprehensive_metadata(self):
         """Test start_session with comprehensive metadata collection."""
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_id = "test-comprehensive-metadata"
         custom_env = {"project": "test_project", "user_config": {"theme": "dark"}}
@@ -140,7 +140,7 @@ class TestComprehensiveMetadata(TestCase):
 
     def test_start_session_without_auto_collect(self):
         """Test start_session with auto-collection disabled."""
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_id = "test-no-auto-collect"
         custom_env = {"project": "test_project"}
@@ -165,9 +165,9 @@ class TestComprehensiveMetadata(TestCase):
         from session_notes.server import (
             calculate_session_metrics,
             get_session_directory,
-            start_session,
             log_agent_execution,
             log_tool_request,
+            start_session,
         )
 
         session_id = "test-metrics"
@@ -216,10 +216,10 @@ class TestComprehensiveMetadata(TestCase):
     def test_end_session_with_comprehensive_metrics(self):
         """Test end_session with comprehensive metrics calculation."""
         from session_notes.server import (
-            start_session,
             end_session,
             get_session_directory,
             log_agent_execution,
+            start_session,
         )
 
         session_id = "test-end-comprehensive"
@@ -264,9 +264,9 @@ class TestComprehensiveMetadata(TestCase):
     def test_update_session_metadata(self):
         """Test updating session metadata during session lifecycle."""
         from session_notes.server import (
+            get_session_directory,
             start_session,
             update_session_metadata,
-            get_session_directory,
         )
 
         session_id = "test-update-metadata"
@@ -302,9 +302,9 @@ class TestComprehensiveMetadata(TestCase):
     def test_get_session_status(self):
         """Test getting current session status and metrics."""
         from session_notes.server import (
-            start_session,
             get_session_status,
             log_agent_execution,
+            start_session,
         )
 
         session_id = "test-status"
@@ -337,9 +337,9 @@ class TestComprehensiveMetadata(TestCase):
     def test_environment_metadata_persistence(self):
         """Test that environment metadata persists correctly through session lifecycle."""
         from session_notes.server import (
-            start_session,
             end_session,
             get_session_directory,
+            start_session,
         )
 
         session_id = "test-persistence"

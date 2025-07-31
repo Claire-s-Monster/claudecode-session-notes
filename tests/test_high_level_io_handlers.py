@@ -6,11 +6,11 @@ This test suite validates the high-level I/O functions that provide
 convenient abstractions for reading and writing session and agent data.
 """
 
-import tempfile
 import json
-from pathlib import Path
 import os
 import sys
+import tempfile
+from pathlib import Path
 from unittest import TestCase
 
 import pytest
@@ -223,7 +223,7 @@ class TestHighLevelIOHandlers(TestCase):
 
     def test_json_formatting_consistency(self):
         """Test that high-level handlers maintain consistent JSON formatting."""
-        from session_notes.server import write_session_json, write_agent_json
+        from session_notes.server import write_agent_json, write_session_json
 
         session_id = "test-formatting-consistency"
         agent_id = "test-agent-formatting"
@@ -266,7 +266,7 @@ class TestHighLevelIOHandlers(TestCase):
 
     def test_error_handling_invalid_json(self):
         """Test error handling when reading invalid JSON files."""
-        from session_notes.server import read_session_json, read_agent_json
+        from session_notes.server import read_agent_json, read_session_json
 
         session_id = "test-error-handling"
         agent_id = "test-agent-error"
@@ -300,13 +300,13 @@ class TestHighLevelIOHandlers(TestCase):
     def test_complete_workflow_integration(self):
         """Test complete workflow using high-level I/O handlers."""
         from session_notes.server import (
-            write_session_json,
-            read_session_json,
-            write_agent_json,
-            read_agent_json,
-            session_exists,
             agent_exists,
             list_session_agents,
+            read_agent_json,
+            read_session_json,
+            session_exists,
+            write_agent_json,
+            write_session_json,
         )
 
         session_id = "test-complete-workflow"

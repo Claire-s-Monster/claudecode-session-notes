@@ -38,7 +38,7 @@ class TestSessionCreation(TestCase):
     def test_start_session_creates_directory_structure(self):
         """Test that start_session creates the correct directory structure."""
         # Import here to avoid the fastmcp import issue in test collection
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_id = "test-session-123"
 
@@ -59,13 +59,13 @@ class TestSessionCreation(TestCase):
 
     def test_start_session_creates_session_json(self):
         """Test that start_session creates a properly formatted session.json file."""
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_id = "test-session-456"
         environment_info = {"platform": "linux", "version": "1.0"}
 
-        # Start session with environment info
-        start_session(session_id, environment_info)
+        # Start session with environment info (disable auto-collection for test)
+        start_session(session_id, environment_info, auto_collect_environment=False)
 
         # Verify session.json was created
         session_dir = get_session_directory(session_id)
@@ -117,12 +117,12 @@ class TestSessionCreation(TestCase):
 
     def test_start_session_with_empty_environment(self):
         """Test that start_session handles empty or None environment info."""
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_id = "test-session-empty-env"
 
-        # Start session with None environment
-        start_session(session_id, None)
+        # Start session with None environment (disable auto-collection for test)
+        start_session(session_id, None, auto_collect_environment=False)
 
         # Verify session.json was created with empty environment
         session_dir = get_session_directory(session_id)
@@ -135,7 +135,7 @@ class TestSessionCreation(TestCase):
 
     def test_multiple_sessions_creation(self):
         """Test creating multiple sessions with different IDs."""
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_ids = ["session-1", "session-2", "session-3"]
 
@@ -175,7 +175,7 @@ class TestSessionCreation(TestCase):
 
     def test_session_json_formatting(self):
         """Test that session.json is properly formatted with indentation."""
-        from session_notes.server import start_session, get_session_directory
+        from session_notes.server import get_session_directory, start_session
 
         session_id = "test-formatting"
         start_session(session_id, {"nested": {"data": True}})

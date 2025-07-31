@@ -75,6 +75,26 @@ class ToolRequest(BaseModel):
     timestamp: str = Field(description="Request timestamp")
 
 
+class AgentMetadata(BaseModel):
+    """Agent metadata and registration information"""
+
+    agent_id: str = Field(description="Unique agent identifier")
+    agent_type: str = Field(description="Type/category of agent")
+    timestamp: str = Field(description="Agent registration timestamp")
+    purpose: str | None = Field(None, description="Agent's intended purpose or role")
+    capabilities: list[str] = Field(
+        default_factory=list, description="List of agent capabilities"
+    )
+    session_id: str = Field(description="Session this agent belongs to")
+    status: str = Field(default="active", description="Agent status")
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional agent-specific metadata"
+    )
+    registration_context: dict[str, Any] = Field(
+        default_factory=dict, description="Context information at registration time"
+    )
+
+
 # =============================================================================
 # ENVIRONMENT COLLECTION UTILITIES
 # =============================================================================
@@ -180,7 +200,7 @@ def calculate_session_metrics(
     Returns:
         Dictionary containing calculated session metrics
     """
-    metrics = {
+    metrics: dict[str, Any] = {
         "calculation_timestamp": datetime.now(UTC).isoformat(),
         "session_duration": duration,
     }
@@ -346,16 +366,16 @@ def write_agent_json(session_id: str, agent_id: str, filename: str, data: Any) -
 
 def session_exists(session_id: str) -> bool:
     """
-    Check if a session directory exists.
+    Check if a session exists by verifying the session.json file.
 
     Args:
         session_id: Session identifier
 
     Returns:
-        True if session directory exists, False otherwise
+        True if session exists (has session.json file), False otherwise
     """
-    session_dir = get_session_directory(session_id)
-    return session_dir.exists() and session_dir.is_dir()
+    session_file = get_session_directory(session_id) / "session.json"
+    return session_file.exists() and session_file.is_file()
 
 
 def agent_exists(session_id: str, agent_id: str) -> bool:
@@ -577,11 +597,27 @@ def _log_agent_execution_impl(
     parameters: dict[str, Any] | None = None,
     result: dict[str, Any] | None = None,
     execution_time: float | None = None,
+    auto_register: bool = True,
 ) -> str:
     """
     Internal implementation for logging agent execution.
     This function contains the actual business logic and is directly callable.
     """
+    # Auto-register agent if it doesn't exist and auto_register is enabled
+    if auto_register and not agent_exists(session_id, agent_id):
+        logger.info(f"Auto-registering agent {agent_id} of type {agent_type}")
+        _register_agent_impl(
+            session_id=session_id,
+            agent_id=agent_id,
+            agent_type=agent_type,
+            purpose=f"Auto-registered during execution logging for action: {action}",
+            registration_context={
+                "auto_registered": True,
+                "first_action": action,
+                "registration_trigger": "log_agent_execution",
+            },
+        )
+
     # Create agent directory if it doesn't exist
     agent_dir = get_agent_directory(session_id, agent_id)
     ensure_directory(agent_dir)
@@ -652,6 +688,141 @@ def _log_tool_request_impl(
     return f"Logged tool request for agent {agent_id}: {tool_name}"
 
 
+def _register_agent_impl(
+    session_id: str,
+    agent_id: str | None = None,
+    agent_type: str = "unknown",
+    purpose: str | None = None,
+    capabilities: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    registration_context: dict[str, Any] | None = None,
+    auto_register_on_execution: bool = True,
+) -> str:
+    """
+    Internal implementation for registering an agent.
+    This function contains the actual business logic and is directly callable.
+    """
+    # Validate session exists (check session.json file specifically)
+    session_file = get_session_directory(session_id) / "session.json"
+    if not session_file.exists():
+        return f"Session {session_id} not found"
+
+    # Generate agent ID if not provided
+    if agent_id is None:
+        agent_id = str(uuid.uuid4())
+
+    # Create agent directory if it doesn't exist
+    agent_dir = get_agent_directory(session_id, agent_id)
+    ensure_directory(agent_dir)
+
+    # Create agent metadata
+    agent_metadata = AgentMetadata(
+        agent_id=agent_id,
+        agent_type=agent_type,
+        timestamp=datetime.now(UTC).isoformat(),
+        purpose=purpose,
+        capabilities=capabilities or [],
+        session_id=session_id,
+        status="active",
+        metadata=metadata or {},
+        registration_context=registration_context or {},
+    )
+
+    # Save agent metadata
+    metadata_file = agent_dir / "metadata.json"
+    save_json_data(metadata_file, agent_metadata.model_dump())
+
+    # Initialize empty execution and tools logs if they don't exist
+    execution_file = agent_dir / "execution.json"
+    if not execution_file.exists():
+        save_json_data(execution_file, [])
+
+    tools_file = agent_dir / "tools.json"
+    if not tools_file.exists():
+        save_json_data(tools_file, [])
+
+    logger.info(f"Registered agent: {agent_id} ({agent_type}) in session {session_id}")
+    return f"Agent {agent_id} registered successfully in session {session_id}"
+
+
+def _get_agent_metadata_impl(session_id: str, agent_id: str) -> dict[str, Any]:
+    """
+    Internal implementation for getting agent metadata.
+    This function contains the actual business logic and is directly callable.
+    """
+    # Check if session exists by verifying session.json file
+    session_file = get_session_directory(session_id) / "session.json"
+    if not session_file.exists():
+        return {"error": f"Session {session_id} not found"}
+
+    if not agent_exists(session_id, agent_id):
+        return {"error": f"Agent {agent_id} not found in session {session_id}"}
+
+    # Load agent metadata
+    agent_dir = get_agent_directory(session_id, agent_id)
+    metadata_file = agent_dir / "metadata.json"
+
+    agent_metadata = load_json_data(metadata_file, {})
+    if not agent_metadata:
+        return {"error": f"Agent {agent_id} metadata not found"}
+
+    # Add current statistics
+    execution_count = len(load_json_data(agent_dir / "execution.json", []))
+    tool_request_count = len(load_json_data(agent_dir / "tools.json", []))
+
+    agent_metadata["statistics"] = {
+        "execution_count": execution_count,
+        "tool_request_count": tool_request_count,
+        "last_activity": get_last_agent_activity(session_id, agent_id),
+    }
+
+    return agent_metadata  # type: ignore[no-any-return]
+
+
+def get_last_agent_activity(session_id: str, agent_id: str) -> str | None:
+    """
+    Get the timestamp of the last activity for an agent.
+
+    Args:
+        session_id: Session identifier
+        agent_id: Agent identifier
+
+    Returns:
+        ISO timestamp of last activity or None if no activity found
+    """
+    if not agent_exists(session_id, agent_id):
+        return None
+
+    agent_dir = get_agent_directory(session_id, agent_id)
+    last_timestamp = None
+
+    # Check execution log
+    executions = load_json_data(agent_dir / "execution.json", [])
+    if executions:
+        execution_timestamps = [
+            exec_data.get("timestamp")
+            for exec_data in executions
+            if isinstance(exec_data, dict) and "timestamp" in exec_data
+        ]
+        if execution_timestamps:
+            last_timestamp = max(execution_timestamps)  # type: ignore[type-var]
+
+    # Check tool requests log
+    tools = load_json_data(agent_dir / "tools.json", [])
+    if tools:
+        tool_timestamps = [
+            tool_data.get("timestamp")
+            for tool_data in tools
+            if isinstance(tool_data, dict) and "timestamp" in tool_data
+        ]
+        if tool_timestamps:
+            tool_last = max(tool_timestamps)  # type: ignore[type-var]
+            if last_timestamp is None or (tool_last and tool_last > last_timestamp):
+                last_timestamp = tool_last
+
+    return last_timestamp
+
+
 def _get_session_impl(session_id: str) -> dict[str, Any]:
     """
     Internal implementation for getting session data.
@@ -664,7 +835,7 @@ def _get_session_impl(session_id: str) -> dict[str, Any]:
         return {"error": f"Session {session_id} not found"}
 
     # Load session data
-    session_data = load_json_data(session_file, {})
+    session_data: dict[str, Any] = load_json_data(session_file, {})
 
     # Add agent data
     agents_dir = session_dir / "agents"
@@ -675,6 +846,7 @@ def _get_session_impl(session_id: str) -> dict[str, Any]:
             if agent_path.is_dir():
                 agent_id = agent_path.name
                 agent_data = {
+                    "metadata": load_json_data(agent_path / "metadata.json", {}),
                     "executions": load_json_data(agent_path / "execution.json", []),
                     "tool_requests": load_json_data(agent_path / "tools.json", []),
                 }
@@ -737,142 +909,92 @@ TESTING_MODE = (
 # In test mode, regular callable functions are created
 # In normal mode, FastMCP tool decorators wrap the functions
 
-# For testing: export internal implementations as the main function names
-# This allows tests to call the functions directly without FastMCP wrapping
-if TESTING_MODE:
-    # Override FastMCP resource functions with internal implementations for testing
-    get_session = _get_session_impl
-    list_sessions = _list_sessions_impl
+# Note: Testing mode overrides are placed after FastMCP function definitions
+# to ensure they take precedence over the decorated functions
 
 
 # =============================================================================
 # FASTMCP 2.0 TOOLS - SESSION MANAGEMENT
 # =============================================================================
 
-# Conditionally define FastMCP tools (only in non-test mode)
-if not TESTING_MODE:
-
-    @app.tool()
-    def start_session(
-        session_id: str | None = None,
-        environment_info: dict[str, Any] | None = None,
-        auto_collect_environment: bool = True,
-    ) -> str:
-        """
-        Start tracking a new ClaudeCode session with comprehensive metadata collection.
-
-        Args:
-            session_id: Optional session ID (will generate if not provided)
-            environment_info: Optional environment metadata (merged with auto-collected data)
-            auto_collect_environment: Whether to automatically collect system environment details
-
-        Returns:
-            Started session ID
-        """
-        return _start_session_impl(
-            session_id, environment_info, auto_collect_environment
-        )
-else:
-    # In testing mode, create callable wrapper functions
-    def start_session(
-        session_id: str | None = None,
-        environment_info: dict[str, Any] | None = None,
-        auto_collect_environment: bool = True,
-    ) -> str:
-        """
-        Start tracking a new ClaudeCode session with comprehensive metadata collection.
-        (Testing mode - direct callable function)
-        """
-        return _start_session_impl(
-            session_id, environment_info, auto_collect_environment
-        )
+# Always define FastMCP tools (for both test and non-test mode)
+# This ensures that FastMCP app.get_tools() and app.get_resources() work correctly in tests
 
 
-if not TESTING_MODE:
+@app.tool()
+def start_session(
+    session_id: str | None = None,
+    environment_info: dict[str, Any] | None = None,
+    auto_collect_environment: bool = True,
+) -> str:
+    """
+    Start tracking a new ClaudeCode session with comprehensive metadata collection.
 
-    @app.tool()
-    def end_session(
-        session_id: str,
-        outcome: str | None = None,
-        outcome_metrics: dict[str, Any] | None = None,
-    ) -> str:
-        """
-        End session tracking and calculate comprehensive final metrics.
+    Args:
+        session_id: Optional session ID (will generate if not provided)
+        environment_info: Optional environment metadata (merged with auto-collected data)
+        auto_collect_environment: Whether to automatically collect system environment details
 
-        Args:
-            session_id: Session ID to end
-            outcome: Optional session outcome description (e.g., "completed", "interrupted", "error")
-            outcome_metrics: Optional custom metrics about the session outcome
-
-        Returns:
-            Session end confirmation with metrics summary
-        """
-        return _end_session_impl(session_id, outcome, outcome_metrics)
-else:
-
-    def end_session(
-        session_id: str,
-        outcome: str | None = None,
-        outcome_metrics: dict[str, Any] | None = None,
-    ) -> str:
-        """End session tracking and calculate comprehensive final metrics. (Testing mode)"""
-        return _end_session_impl(session_id, outcome, outcome_metrics)
+    Returns:
+        Started session ID
+    """
+    return _start_session_impl(session_id, environment_info, auto_collect_environment)
 
 
-if not TESTING_MODE:
+@app.tool()
+def end_session(
+    session_id: str,
+    outcome: str | None = None,
+    outcome_metrics: dict[str, Any] | None = None,
+) -> str:
+    """
+    End session tracking and calculate comprehensive final metrics.
 
-    @app.tool()
-    def update_session_metadata(
-        session_id: str,
-        metadata_updates: dict[str, Any],
-        merge_environment: bool = True,
-    ) -> str:
-        """
-        Update session metadata during the session lifecycle.
+    Args:
+        session_id: Session ID to end
+        outcome: Optional session outcome description (e.g., "completed", "interrupted", "error")
+        outcome_metrics: Optional custom metrics about the session outcome
 
-        Args:
-            session_id: Session ID to update
-            metadata_updates: Dictionary of metadata fields to update
-            merge_environment: Whether to merge environment updates (vs replace)
-
-        Returns:
-            Update confirmation
-        """
-        return _update_session_metadata_impl(
-            session_id, metadata_updates, merge_environment
-        )
-else:
-
-    def update_session_metadata(
-        session_id: str,
-        metadata_updates: dict[str, Any],
-        merge_environment: bool = True,
-    ) -> str:
-        """Update session metadata during the session lifecycle. (Testing mode)"""
-        return _update_session_metadata_impl(
-            session_id, metadata_updates, merge_environment
-        )
+    Returns:
+        Session end confirmation with metrics summary
+    """
+    return _end_session_impl(session_id, outcome, outcome_metrics)
 
 
-if not TESTING_MODE:
+@app.tool()
+def update_session_metadata(
+    session_id: str,
+    metadata_updates: dict[str, Any],
+    merge_environment: bool = True,
+) -> str:
+    """
+    Update session metadata during the session lifecycle.
 
-    @app.tool()
-    def get_session_status(session_id: str) -> dict[str, Any]:
-        """
-        Get current session status and basic metrics.
+    Args:
+        session_id: Session ID to update
+        metadata_updates: Dictionary of metadata fields to update
+        merge_environment: Whether to merge environment updates (vs replace)
 
-        Args:
-            session_id: Session ID to check
+    Returns:
+        Update confirmation
+    """
+    return _update_session_metadata_impl(
+        session_id, metadata_updates, merge_environment
+    )
 
-        Returns:
-            Session status information
-        """
-        return _get_session_status_impl(session_id)
-else:
 
-    def get_session_status(session_id: str) -> dict[str, Any]:
-        """Get current session status and basic metrics. (Testing mode)"""
-        return _get_session_status_impl(session_id)
+@app.tool()
+def get_session_status(session_id: str) -> dict[str, Any]:
+    """
+    Get current session status and basic metrics.
+
+    Args:
+        session_id: Session ID to check
+
+    Returns:
+        Session status information
+    """
+    return _get_session_status_impl(session_id)
 
 
 # =============================================================================
@@ -880,95 +1002,122 @@ else:
 # =============================================================================
 
 
-if not TESTING_MODE:
+@app.tool()
+def register_agent(
+    session_id: str,
+    agent_id: str | None = None,
+    agent_type: str = "unknown",
+    purpose: str | None = None,
+    capabilities: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    registration_context: dict[str, Any] | None = None,
+) -> str:
+    """
+    Register an agent within a session with comprehensive metadata.
 
-    @app.tool()
-    def log_agent_execution(
-        session_id: str,
-        agent_id: str,
-        agent_type: str,
-        action: str,
-        parameters: dict[str, Any] | None = None,
-        result: dict[str, Any] | None = None,
-        execution_time: float | None = None,
-    ) -> str:
-        """
-        Log an agent execution within a session.
+    Args:
+        session_id: Session ID where the agent will be registered
+        agent_id: Optional unique agent identifier (will generate if not provided)
+        agent_type: Type/category of agent (e.g., "code-reviewer", "task-executor")
+        purpose: Optional description of the agent's intended purpose or role
+        capabilities: Optional list of agent capabilities or skills
+        metadata: Optional additional agent-specific metadata
+        registration_context: Optional context information at registration time
 
-        Args:
-            session_id: Session ID
-            agent_id: Unique agent identifier
-            agent_type: Type of agent (e.g., "code-reviewer", "task-executor")
-            action: Action performed by the agent
-            parameters: Optional action parameters
-            result: Optional execution result
-            execution_time: Optional execution time in milliseconds
-
-        Returns:
-            Logging confirmation
-        """
-        return _log_agent_execution_impl(
-            session_id, agent_id, agent_type, action, parameters, result, execution_time
-        )
-else:
-
-    def log_agent_execution(
-        session_id: str,
-        agent_id: str,
-        agent_type: str,
-        action: str,
-        parameters: dict[str, Any] | None = None,
-        result: dict[str, Any] | None = None,
-        execution_time: float | None = None,
-    ) -> str:
-        """Log an agent execution within a session. (Testing mode)"""
-        return _log_agent_execution_impl(
-            session_id, agent_id, agent_type, action, parameters, result, execution_time
-        )
+    Returns:
+        Registration confirmation with agent ID
+    """
+    return _register_agent_impl(
+        session_id,
+        agent_id,
+        agent_type,
+        purpose,
+        capabilities,
+        metadata,
+        registration_context,
+    )
 
 
-if not TESTING_MODE:
+@app.tool()
+def get_agent_metadata(session_id: str, agent_id: str) -> dict[str, Any]:
+    """
+    Get comprehensive metadata for a specific agent including current statistics.
 
-    @app.tool()
-    def log_tool_request(
-        session_id: str,
-        agent_id: str,
-        tool_name: str,
-        available: bool,
-        parameters: dict[str, Any] | None = None,
-        success: bool | None = None,
-    ) -> str:
-        """
-        Log a tool request by an agent.
+    Args:
+        session_id: Session ID containing the agent
+        agent_id: Agent identifier
 
-        Args:
-            session_id: Session ID
-            agent_id: Agent making the request
-            tool_name: Name of the requested tool
-            available: Whether the tool was available
-            parameters: Optional tool parameters
-            success: Whether the tool execution succeeded (defaults to available)
+    Returns:
+        Agent metadata with current statistics
+    """
+    return _get_agent_metadata_impl(session_id, agent_id)
 
-        Returns:
-            Logging confirmation
-        """
-        return _log_tool_request_impl(
-            session_id, agent_id, tool_name, available, parameters, success
-        )
-else:
 
-    def log_tool_request(
-        session_id: str,
-        agent_id: str,
-        tool_name: str,
-        available: bool,
-        parameters: dict[str, Any] | None = None,
-        success: bool | None = None,
-    ) -> str:
-        """Log a tool request by an agent. (Testing mode)"""
-        return _log_tool_request_impl(
-            session_id, agent_id, tool_name, available, parameters, success
-        )
+@app.tool()
+def log_agent_execution(
+    session_id: str,
+    agent_id: str,
+    agent_type: str,
+    action: str,
+    parameters: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
+    execution_time: float | None = None,
+    auto_register: bool = True,
+) -> str:
+    """
+    Log an agent execution within a session with optional auto-registration.
+
+    Args:
+        session_id: Session ID
+        agent_id: Unique agent identifier
+        agent_type: Type of agent (e.g., "code-reviewer", "task-executor")
+        action: Action performed by the agent
+        parameters: Optional action parameters
+        result: Optional execution result
+        execution_time: Optional execution time in milliseconds
+        auto_register: Whether to automatically register the agent if it doesn't exist
+
+    Returns:
+        Logging confirmation
+    """
+    return _log_agent_execution_impl(
+        session_id,
+        agent_id,
+        agent_type,
+        action,
+        parameters,
+        result,
+        execution_time,
+        auto_register,
+    )
+
+
+@app.tool()
+def log_tool_request(
+    session_id: str,
+    agent_id: str,
+    tool_name: str,
+    available: bool,
+    parameters: dict[str, Any] | None = None,
+    success: bool | None = None,
+) -> str:
+    """
+    Log a tool request by an agent.
+
+    Args:
+        session_id: Session ID
+        agent_id: Agent making the request
+        tool_name: Name of the requested tool
+        available: Whether the tool was available
+        parameters: Optional tool parameters
+        success: Whether the tool execution succeeded (defaults to available)
+
+    Returns:
+        Logging confirmation
+    """
+    return _log_tool_request_impl(
+        session_id, agent_id, tool_name, available, parameters, success
+    )
 
 
 # =============================================================================
@@ -976,43 +1125,80 @@ else:
 # =============================================================================
 
 
-if not TESTING_MODE:
+@app.resource("session://{session_id}")
+def get_session(session_id: str) -> dict[str, Any]:
+    """
+    Get complete session data including all agent executions.
 
-    @app.resource("session://{session_id}")
-    def get_session(session_id: str) -> dict[str, Any]:
-        """
-        Get complete session data including all agent executions.
+    Args:
+        session_id: Session ID to retrieve
 
-        Args:
-            session_id: Session ID to retrieve
-
-        Returns:
-            Complete session data
-        """
-        return _get_session_impl(session_id)
-else:
-
-    def get_session(session_id: str) -> dict[str, Any]:
-        """Get complete session data including all agent executions. (Testing mode)"""
-        return _get_session_impl(session_id)
+    Returns:
+        Complete session data
+    """
+    return _get_session_impl(session_id)
 
 
-if not TESTING_MODE:
+@app.resource("sessions://list")
+def list_sessions() -> list[dict[str, Any]]:
+    """
+    List all tracked sessions.
 
-    @app.resource("sessions://list")
-    def list_sessions() -> list[dict[str, Any]]:
-        """
-        List all tracked sessions.
+    Returns:
+        List of session summaries
+    """
+    return _list_sessions_impl()
 
-        Returns:
-            List of session summaries
-        """
-        return _list_sessions_impl()
-else:
 
-    def list_sessions() -> list[dict[str, Any]]:
-        """List all tracked sessions. (Testing mode)"""
-        return _list_sessions_impl()
+@app.resource("agent://{session_id}/{agent_id}")
+def get_agent_data(session_id: str, agent_id: str) -> dict[str, Any]:
+    """
+    Get complete agent data including metadata, executions, and tool requests.
+
+    Args:
+        session_id: Session ID containing the agent
+        agent_id: Agent identifier
+
+    Returns:
+        Complete agent data
+    """
+    return _get_agent_metadata_impl(session_id, agent_id)
+
+
+@app.resource("agents://{session_id}")
+def list_session_agents_resource(session_id: str) -> list[str]:
+    """
+    List all agent IDs within a session.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        List of agent IDs
+    """
+    return list_session_agents(session_id)
+
+
+# =============================================================================
+# TESTING MODE OVERRIDES
+# =============================================================================
+
+# For testing: Override FastMCP-wrapped functions with direct callable implementations
+# This allows tests to call functions directly while maintaining FastMCP registration
+if TESTING_MODE:
+    # Tool functions (override FastMCP-wrapped functions for direct testing)
+    start_session = _start_session_impl  # type: ignore[assignment]
+    end_session = _end_session_impl  # type: ignore[assignment]
+    update_session_metadata = _update_session_metadata_impl  # type: ignore[assignment]
+    get_session_status = _get_session_status_impl  # type: ignore[assignment]
+    register_agent = _register_agent_impl  # type: ignore[assignment]
+    get_agent_metadata = _get_agent_metadata_impl  # type: ignore[assignment]
+    log_agent_execution = _log_agent_execution_impl  # type: ignore[assignment]
+    log_tool_request = _log_tool_request_impl  # type: ignore[assignment]
+
+    # Resource functions (override FastMCP-wrapped functions for direct testing)
+    get_session = _get_session_impl  # type: ignore[assignment]
+    list_sessions = _list_sessions_impl  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -1025,9 +1211,13 @@ def main() -> None:
     logger.info("Starting Session Notes MCP Server with FastMCP 2.0")
     logger.info(
         "Available tools: start_session, end_session, update_session_metadata, "
-        "get_session_status, log_agent_execution, log_tool_request"
+        "get_session_status, register_agent, get_agent_metadata, "
+        "log_agent_execution, log_tool_request"
     )
-    logger.info("Available resources: session://{id}, sessions://list")
+    logger.info(
+        "Available resources: session://{id}, sessions://list, "
+        "agent://{session_id}/{agent_id}, agents://{session_id}"
+    )
 
     # Run the FastMCP server
     app.run()
