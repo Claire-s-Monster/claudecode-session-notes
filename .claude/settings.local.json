@@ -138,7 +138,9 @@
       "mcp__uckn-knowledge__recommend_setup",
       "mcp__uckn-knowledge__search_patterns",
       "mcp__uckn-knowledge__validate_solution",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__task-master-ai__complexity_report",
+      "mcp__task-master-ai__update_subtask"
     ],
     "deny": [
       "Bash(*>*)",
