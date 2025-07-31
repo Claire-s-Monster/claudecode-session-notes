@@ -1,0 +1,1 @@
+/home/memento/.claude/agents/mcp-integration-manager.md

@@ -1,0 +1,403 @@
+name: Performance Monitoring
+
+# Comprehensive performance analysis and regression detection
+# Runs on significant changes and provides baseline measurements
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**/*.py'
+      - 'pyproject.toml'
+      - 'pixi.lock'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**/*.py'
+      - 'pyproject.toml'
+  workflow_dispatch:
+    inputs:
+      benchmark_type:
+        description: 'Benchmark type to run'
+        required: false
+        default: 'standard'
+        type: choice
+        options:
+          - 'quick'
+          - 'standard'
+          - 'comprehensive'
+
+env:
+  PYTHONNOUSERSITE: 1
+  PIXI_VERSION: v0.49.0
+
+jobs:
+  performance-analysis:
+    name: "Performance Analysis"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Install quality-extended environment
+        run: |
+          pixi install -e quality-extended
+          pixi run -e quality-extended dev-setup
+
+      - name: FastMCP 2.0 startup performance
+        run: |
+          echo "=== FastMCP 2.0 Startup Performance Analysis ==="
+
+          # Create performance test script
+          cat > performance_test.py << 'EOF'
+          import sys
+          import time
+          import tracemalloc
+          import subprocess
+          import signal
+          from pathlib import Path
+
+          sys.path.insert(0, 'src')
+
+          def measure_startup():
+              """Measure server startup time and memory usage."""
+              tracemalloc.start()
+              start_time = time.perf_counter()
+
+              # Start server process
+              proc = subprocess.Popen(
+                  ['python', '-m', 'session_notes.server'],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+                  env={'PYTHONPATH': 'src'}
+              )
+
+              # Wait for startup (or timeout)
+              time.sleep(2)
+              end_time = time.perf_counter()
+
+              # Clean shutdown
+              proc.terminate()
+              proc.wait(timeout=5)
+
+              current, peak = tracemalloc.get_traced_memory()
+              tracemalloc.stop()
+
+              startup_time = (end_time - start_time) * 1000  # Convert to ms
+              memory_mb = peak / 1024 / 1024
+
+              print(f"Startup time: {startup_time:.1f}ms")
+              print(f"Peak memory: {memory_mb:.1f}MB")
+
+              return startup_time, memory_mb
+
+          def measure_import_time():
+              """Measure import performance."""
+              start_time = time.perf_counter()
+              import session_notes.server
+              end_time = time.perf_counter()
+
+              import_time = (end_time - start_time) * 1000
+              print(f"Import time: {import_time:.1f}ms")
+              return import_time
+
+          if __name__ == "__main__":
+              print("Performance Analysis Results:")
+              print("-" * 40)
+
+              # Measure import performance
+              import_time = measure_import_time()
+
+              # Measure startup performance
+              startup_time, memory_usage = measure_startup()
+
+              # Performance thresholds
+              MAX_IMPORT_TIME = 500  # 500ms
+              MAX_STARTUP_TIME = 3000  # 3s
+              MAX_MEMORY = 100  # 100MB
+
+              print("\nPerformance Thresholds:")
+              print(f"Import time: {'✅' if import_time < MAX_IMPORT_TIME else '⚠️'} {import_time:.1f}ms (max: {MAX_IMPORT_TIME}ms)")
+              print(f"Startup time: {'✅' if startup_time < MAX_STARTUP_TIME else '⚠️'} {startup_time:.1f}ms (max: {MAX_STARTUP_TIME}ms)")
+              print(f"Memory usage: {'✅' if memory_usage < MAX_MEMORY else '⚠️'} {memory_usage:.1f}MB (max: {MAX_MEMORY}MB)")
+
+              # Generate JSON report for CI
+              import json
+              report = {
+                  "timestamp": time.time(),
+                  "metrics": {
+                      "import_time_ms": import_time,
+                      "startup_time_ms": startup_time,
+                      "peak_memory_mb": memory_usage
+                  },
+                  "thresholds": {
+                      "import_time_passed": import_time < MAX_IMPORT_TIME,
+                      "startup_time_passed": startup_time < MAX_STARTUP_TIME,
+                      "memory_usage_passed": memory_usage < MAX_MEMORY
+                  }
+              }
+
+              with open('performance-report.json', 'w') as f:
+                  json.dump(report, f, indent=2)
+
+              # Exit with error if any threshold exceeded
+              if not all(report["thresholds"].values()):
+                  print("\n❌ Performance regression detected!")
+                  sys.exit(1)
+              else:
+                  print("\n✅ All performance thresholds met")
+          EOF
+
+          pixi run -e quality-extended python performance_test.py
+
+      - name: FastMCP protocol performance
+        run: |
+          echo "=== FastMCP Protocol Performance ==="
+
+          cat > protocol_performance.py << 'EOF'
+          import sys
+          import time
+          import json
+          from unittest.mock import patch
+
+          sys.path.insert(0, 'src')
+          from session_notes.server import app, start_session, log_agent_execution, get_session
+
+          def measure_tool_performance():
+              """Measure tool execution performance."""
+              results = {}
+
+              # Measure start_session performance
+              start_time = time.perf_counter()
+              for i in range(100):  # 100 iterations
+                  session_id = start_session(f"perf-test-{i}")
+              end_time = time.perf_counter()
+
+              avg_time = ((end_time - start_time) / 100) * 1000  # ms per call
+              results['start_session_ms'] = avg_time
+              print(f"start_session average: {avg_time:.2f}ms per call")
+
+              # Measure log_agent_execution performance
+              start_time = time.perf_counter()
+              for i in range(100):
+                  log_agent_execution(
+                      session_id=f"perf-test-{i % 10}",
+                      agent_id=f"agent-{i}",
+                      agent_type="test",
+                      action="performance_test",
+                      parameters={"iteration": i}
+                  )
+              end_time = time.perf_counter()
+
+              avg_time = ((end_time - start_time) / 100) * 1000
+              results['log_agent_execution_ms'] = avg_time
+              print(f"log_agent_execution average: {avg_time:.2f}ms per call")
+
+              # Measure resource retrieval performance
+              start_time = time.perf_counter()
+              for i in range(50):  # Fewer iterations for resource access
+                  session_data = get_session(f"perf-test-{i % 10}")
+              end_time = time.perf_counter()
+
+              avg_time = ((end_time - start_time) / 50) * 1000
+              results['get_session_ms'] = avg_time
+              print(f"get_session average: {avg_time:.2f}ms per call")
+
+              return results
+
+          if __name__ == "__main__":
+              print("Protocol Performance Analysis:")
+              print("-" * 40)
+
+              results = measure_tool_performance()
+
+              # Performance thresholds for protocol operations
+              thresholds = {
+                  'start_session_ms': 50,    # 50ms max per session start
+                  'log_agent_execution_ms': 20,  # 20ms max per log operation
+                  'get_session_ms': 30       # 30ms max per session retrieval
+              }
+
+              passed = True
+              print("\nPerformance Thresholds:")
+              for metric, value in results.items():
+                  threshold = thresholds.get(metric, float('inf'))
+                  status = '✅' if value < threshold else '⚠️'
+                  if value >= threshold:
+                      passed = False
+                  print(f"{metric}: {status} {value:.2f}ms (max: {threshold}ms)")
+
+              # Save detailed results
+              with open('protocol-performance.json', 'w') as f:
+                  json.dump({
+                      'results': results,
+                      'thresholds': thresholds,
+                      'passed': passed
+                  }, f, indent=2)
+
+              if not passed:
+                  print("\n❌ Protocol performance regression detected!")
+                  sys.exit(1)
+              else:
+                  print("\n✅ All protocol performance thresholds met")
+          EOF
+
+          pixi run -e quality-extended python protocol_performance.py
+
+      - name: Memory profiling
+        if: github.event.inputs.benchmark_type == 'comprehensive' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "=== Memory Profiling Analysis ==="
+
+          cat > memory_profile.py << 'EOF'
+          import sys
+          import gc
+          import tracemalloc
+          import json
+          from pathlib import Path
+
+          sys.path.insert(0, 'src')
+
+          def profile_memory_usage():
+              """Profile memory usage patterns."""
+              tracemalloc.start()
+
+              # Import and initialize
+              from session_notes.server import app, start_session, log_agent_execution
+
+              snapshot1 = tracemalloc.take_snapshot()
+
+              # Simulate typical usage
+              session_ids = []
+              for i in range(10):
+                  session_id = start_session(f"memory-test-{i}")
+                  session_ids.append(session_id)
+
+                  # Log some agent executions
+                  for j in range(5):
+                      log_agent_execution(
+                          session_id=session_id,
+                          agent_id=f"agent-{j}",
+                          agent_type="memory-test",
+                          action=f"action-{j}",
+                          parameters={"data": "x" * 100}  # Some payload
+                      )
+
+              snapshot2 = tracemalloc.take_snapshot()
+
+              # Analyze memory growth
+              top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+
+              total_growth = sum(stat.size_diff for stat in top_stats if stat.size_diff > 0)
+              print(f"Total memory growth: {total_growth / 1024:.1f} KB")
+
+              # Check for potential leaks (top 5 growth sources)
+              print("\nTop memory growth sources:")
+              for i, stat in enumerate(top_stats[:5]):
+                  if stat.size_diff > 0:
+                      print(f"{i+1}. {stat.traceback.format()[-1]}: +{stat.size_diff / 1024:.1f} KB")
+
+              # Force garbage collection and measure again
+              gc.collect()
+              snapshot3 = tracemalloc.take_snapshot()
+
+              current, peak = tracemalloc.get_traced_memory()
+              print(f"\nFinal memory usage: {current / 1024 / 1024:.1f} MB")
+              print(f"Peak memory usage: {peak / 1024 / 1024:.1f} MB")
+
+              return {
+                  "memory_growth_kb": total_growth / 1024,
+                  "final_memory_mb": current / 1024 / 1024,
+                  "peak_memory_mb": peak / 1024 / 1024
+              }
+
+          if __name__ == "__main__":
+              print("Memory Profiling Analysis:")
+              print("-" * 40)
+
+              results = profile_memory_usage()
+
+              # Save results
+              with open('memory-profile.json', 'w') as f:
+                  json.dump(results, f, indent=2)
+
+              print(f"\n✅ Memory profiling completed")
+          EOF
+
+          pixi run -e quality-extended python memory_profile.py
+
+      - name: Generate performance report
+        run: |
+          echo "# Performance Analysis Report" > performance-summary.md
+          echo "Generated: $(date)" >> performance-summary.md
+          echo "" >> performance-summary.md
+
+          if [[ -f performance-report.json ]]; then
+              echo "## Startup Performance" >> performance-summary.md
+              python -c "
+              import json
+              with open('performance-report.json') as f:
+                  data = json.load(f)
+              metrics = data['metrics']
+              thresholds = data['thresholds']
+              print(f'- Import time: {metrics[\"import_time_ms\"]:.1f}ms')
+              print(f'- Startup time: {metrics[\"startup_time_ms\"]:.1f}ms')
+              print(f'- Peak memory: {metrics[\"peak_memory_mb\"]:.1f}MB')
+              " >> performance-summary.md
+              echo "" >> performance-summary.md
+          fi
+
+          if [[ -f protocol-performance.json ]]; then
+              echo "## Protocol Performance" >> performance-summary.md
+              python -c "
+              import json
+              with open('protocol-performance.json') as f:
+                  data = json.load(f)
+              results = data['results']
+              for metric, value in results.items():
+                  print(f'- {metric}: {value:.2f}ms')
+              " >> performance-summary.md
+              echo "" >> performance-summary.md
+          fi
+
+          if [[ -f memory-profile.json ]]; then
+              echo "## Memory Analysis" >> performance-summary.md
+              python -c "
+              import json
+              with open('memory-profile.json') as f:
+                  data = json.load(f)
+              print(f'- Memory growth: {data[\"memory_growth_kb\"]:.1f}KB')
+              print(f'- Final memory: {data[\"final_memory_mb\"]:.1f}MB')
+              print(f'- Peak memory: {data[\"peak_memory_mb\"]:.1f}MB')
+              " >> performance-summary.md
+          fi
+
+      - name: Upload performance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-analysis-${{ github.run_number }}
+          path: |
+            performance-report.json
+            protocol-performance.json
+            memory-profile.json
+            performance-summary.md
+          retention-days: 30
+
+      - name: Comment performance on PR
+        if: github.event_name == 'pull_request'
+        run: |
+          if [[ -f performance-summary.md ]]; then
+              echo "Performance analysis completed - results available in artifacts"
+              # Note: In a real environment, you'd want to post this as a PR comment
+              # using actions like actions/github-script or a dedicated commenting action
+          fi

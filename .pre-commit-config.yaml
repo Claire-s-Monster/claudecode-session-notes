@@ -1,0 +1,71 @@
+# Pre-commit Configuration for LOCAL Development
+# Optimized for speed and LOCAL workflow with comprehensive quality gates
+
+repos:
+  # Ruff - Ultra-fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.3
+    hooks:
+      # Critical violations only (F,E9) for fast LOCAL commits
+      - id: ruff
+        name: ruff-lint-critical
+        args: [--select=F,E9, --fix]
+        stages: [pre-commit]
+      # Full linting for manual validation
+      - id: ruff
+        name: ruff-lint-full
+        args: [--fix]
+        stages: [manual]
+      # Code formatting
+      - id: ruff-format
+        name: ruff-format
+        stages: [pre-commit]
+
+  # MyPy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        name: mypy-type-check
+        additional_dependencies: []
+        args: [--config-file=pyproject.toml]
+        stages: [manual]  # Skip on every commit for speed, run manually
+
+  # Built-in hooks for basic file validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-yaml
+        name: yaml-syntax-check
+      - id: check-toml
+        name: toml-syntax-check
+      - id: check-json
+        name: json-syntax-check
+      - id: end-of-file-fixer
+        name: fix-end-of-file
+      - id: trailing-whitespace
+        name: fix-trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: check-merge-conflict
+        name: check-merge-conflicts
+      - id: check-added-large-files
+        name: check-large-files
+        args: [--maxkb=1000]
+
+  # Security scanning for LOCAL development
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        name: security-scan
+        args: [-r, src/, --severity-level, high, --exclude, tests/]
+        stages: [manual]  # Run manually for comprehensive security check
+
+# Configuration for LOCAL development optimization
+default_stages: [pre-commit]
+fail_fast: false  # Show all errors, don't stop on first failure
+minimum_pre_commit_version: '3.0.0'
+
+# LOCAL development stages:
+# - pre-commit: Fast validation on every commit (critical only)
+# - manual: Comprehensive validation (run with: pre-commit run --hook-stage manual --all-files)

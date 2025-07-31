@@ -507,170 +507,132 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
-        "title": "Setup Core MCP Server Infrastructure",
-        "description": "Initialize a new Python project and set up the basic FastMCP 2.0 server, which will serve as the foundation for all other features.",
-        "status": "done",
+        "id": 11,
+        "title": "Setup Core MCP Server Foundation with FastMCP 2.0",
+        "description": "Initialize the project structure for the session-notes MCP server using the FastMCP 2.0 framework. This includes setting up the Python environment with PIXI and creating the main server application file with basic decorator-based resource definitions.",
+        "details": "Leverage FastMCP 2.0's decorator patterns for rapid development. Configure the pyproject.toml for PIXI-based dependency management. The initial setup should result in a runnable, empty MCP server that can be registered with ClaudeCode.",
+        "testStrategy": "Verify that the PIXI environment can be created successfully. Run the server and confirm it starts without errors. Attempt to register the server with a ClaudeCode client to ensure basic connectivity.",
+        "priority": "high",
         "dependencies": [],
-        "priority": "high",
-        "details": "Use Python and the FastMCP 2.0 framework. Set up the project structure according to PIXI conventions, including pyproject.toml configuration. Create the main server entry point at src/session_notes/server.py, using FastMCP 2.0's decorator-based API (@mcp.tool(), @mcp.resource()). Add 'fastmcp >= 2.0.0' as a dependency in pyproject.toml. Ensure the server can start and be registered with ClaudeCode using stdio transport. Provide a CLI entry point for server startup.",
-        "testStrategy": "Verify the server starts without errors using the CLI entry point. Use the existing MCP quality framework to test server startup and MCP protocol compliance. Use a simple MCP client to connect to the server and confirm it is discoverable and responsive via stdio transport.",
-        "subtasks": [
-          {
-            "id": 1,
-            "title": "Initialize Python project with PIXI configuration",
-            "description": "Set up the Python project structure, including pyproject.toml and PIXI configuration files. Add 'fastmcp >= 2.0.0' as a dependency.",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 2,
-            "title": "Create main server entry point using FastMCP 2.0 decorators",
-            "description": "Implement src/session_notes/server.py as the main entry point. Use FastMCP 2.0's @mcp.tool() and @mcp.resource() decorators to define at least one tool and one resource.",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 3,
-            "title": "Add CLI entry point for server startup",
-            "description": "Provide a CLI command to start the MCP server, ensuring it uses stdio transport and is compatible with ClaudeCode registration.",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          },
-          {
-            "id": 4,
-            "title": "Test server startup and MCP protocol compliance",
-            "description": "Use the existing MCP quality framework to verify that the server starts, is MCP protocol compliant, and can be discovered and interacted with by a simple MCP client.",
-            "status": "done",
-            "dependencies": [],
-            "details": "",
-            "testStrategy": ""
-          }
-        ]
+        "status": "pending",
+        "subtasks": []
       },
       {
-        "id": 2,
+        "id": 12,
         "title": "Implement File-Based Storage Layer",
-        "description": "Create the file system logic for storing session data according to the specified hierarchical structure.",
-        "details": "Implement functions to create and manage directories based on the pattern `.claude/session-notes/<session-id>/agents/<agent-id>/`. All data should be written in JSON format.",
-        "testStrategy": "Write unit tests for creating, reading, updating, and deleting session directories and files. Verify the correct directory structure is generated for a mock session.",
+        "description": "Create the file-based storage system with the specified hierarchical organization. This task involves writing Python modules to handle the creation and management of directories and JSON files for sessions, agents, and reports.",
+        "details": "Implement logic to create and manage the directory structure: `.claude/session-notes/<session-id>/agents/<agent-id>/`. All data should be stored in JSON format for easy parsing. This includes creating placeholder files like `session.json` and `agents/execution.json` upon session creation.",
+        "testStrategy": "Write unit tests to verify that the correct directory and file structures are created for new sessions and agents. Test file writing and reading operations to ensure data integrity.",
         "priority": "high",
         "dependencies": [
-          1
+          11
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 3,
-        "title": "Define and Implement Core Data Models",
-        "description": "Create TypeScript interfaces or classes for the Session and Agent data models as specified in the PRD.",
-        "details": "Implement the `SessionModel` and `AgentModel` structures, ensuring they are serializable to JSON. Include all specified fields like `sessionId`, `timestamp`, `agentId`, and `interactions`.",
-        "testStrategy": "Create unit tests for each model to verify type validation and correct serialization/deserialization to and from JSON strings.",
+        "id": 13,
+        "title": "Develop Core Session Metadata Collection",
+        "description": "Implement the MCP endpoint and logic to capture and store core session metadata. This includes sessionId, timestamp, duration, and basic environment details.",
+        "details": "Create an MCP endpoint that accepts session start and end events. On session start, create the session directory and store initial metadata in `session.json`. On session end, update the file with duration and outcome metrics. The data must conform to the `Session Model` specified in the PRD.",
+        "testStrategy": "Trigger session start/end events from a test client. Verify that the corresponding `session.json` file is created and updated correctly in the file system with accurate data.",
         "priority": "high",
         "dependencies": [
-          1
+          12
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 4,
-        "title": "Implement Session Metadata Collection",
-        "description": "Implement the logic to automatically capture and store core session metadata, such as ID, timestamp, and duration.",
-        "details": "Hook into ClaudeCode session lifecycle events to collect `sessionId`, `timestamp`, `duration`, and `environment` details. Store this information in `session.json` within the corresponding session directory.",
-        "testStrategy": "Trigger a mock session start and end event. Verify that a `session.json` file is created in the correct directory with accurate data.",
-        "priority": "high",
-        "dependencies": [
-          2,
-          3
-        ],
-        "status": "pending",
-        "subtasks": []
-      },
-      {
-        "id": 5,
+        "id": 14,
         "title": "Implement Basic Agent Logging Framework",
-        "description": "Track individual agent executions within a session by assigning unique IDs and creating dedicated log files.",
-        "details": "For each agent, create an agent-specific subdirectory. Log basic execution data, such as the agent's ID and type, to an `execution.json` file within its directory.",
-        "testStrategy": "Simulate a session with multiple agents and verify that corresponding agent subdirectories and `execution.json` files are created correctly.",
+        "description": "Establish the framework for tracking individual agent executions. This involves creating agent-specific log files and an endpoint to receive agent data.",
+        "details": "Create a mechanism to assign and track unique agent IDs within a session. Implement an endpoint to log agent creation and store basic agent metadata in the `.../agents/<agent-id>/` directory structure. This sets the foundation for detailed interaction tracking.",
+        "testStrategy": "Simulate the creation of multiple agents within a session. Verify that a unique directory is created for each agent and that their basic metadata is logged correctly.",
         "priority": "medium",
         "dependencies": [
-          4
+          13
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 6,
+        "id": 15,
         "title": "Implement Simple Tool Usage Tracking",
-        "description": "Log all tool invocation events during a session, including the tool name and its success or failure status.",
-        "details": "Capture tool usage data and append it to a `tools.json` file within the session directory. This is the MVP version focusing on basic tracking as per Phase 1.",
-        "testStrategy": "Mock several tool invocation events (both successful and failed) and check that they are correctly appended as an array to the `tools.json` log.",
+        "description": "Create the functionality to track tool usage during a session, including the tool name and its success or failure status.",
+        "details": "Develop an MCP endpoint to receive tool invocation events. Log each event with tool name, parameters, and a success/failure flag into a session-level `tools.json` file or an agent-specific log.",
+        "testStrategy": "Send simulated tool usage events (both successful and failed) to the server. Inspect the corresponding log files to ensure all tool invocations are recorded accurately.",
         "priority": "medium",
         "dependencies": [
-          4
+          13
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 7,
-        "title": "Develop CLI for Session Data Querying",
-        "description": "Create a command-line interface for users to query the collected session data from the file system.",
-        "details": "The CLI should support commands to list all captured sessions (`sessions/list`) and retrieve the full data for a specific session ID (`sessions/get/{id}`). Output should be available in human-readable and JSON formats.",
-        "testStrategy": "Run CLI commands against a directory of mock session data files and verify that the output is correct and properly formatted for both list and get commands.",
+        "id": 16,
+        "title": "Create CLI Data Access Endpoints",
+        "description": "Implement the initial set of MCP protocol endpoints to allow users to query stored session and agent data from a CLI.",
+        "details": "Implement the following endpoints: `notes://sessions/list`, `notes://sessions/get/{id}`, and `notes://agents/list/{sessionId}`. These endpoints should read from the file-based storage and return data in the specified JSON format.",
+        "testStrategy": "After populating data using other tasks, call each endpoint with a test client. Verify that `list` returns a correct summary and `get` returns the full, accurate data for the specified ID.",
         "priority": "medium",
         "dependencies": [
-          4,
-          5,
-          6
+          13,
+          14
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 8,
-        "title": "Implement Core MCP Protocol Endpoints",
-        "description": "Expose the data access layer through the specified MCP protocol endpoints to allow integration with ClaudeCode.",
-        "details": "Implement the `notes://sessions/list` and `notes://sessions/get/{id}` endpoints on the FastMCP server. These endpoints should use the logic from the data access layer to serve the requests.",
-        "testStrategy": "Use an MCP client to connect to the server and call the new endpoints. Verify that the correct JSON data is returned and that the responses conform to the data models.",
-        "priority": "high",
-        "dependencies": [
-          7
-        ],
-        "status": "pending",
-        "subtasks": []
-      },
-      {
-        "id": 9,
+        "id": 17,
         "title": "Implement Detailed Agent Interaction Tracking",
-        "description": "Enhance the agent logger to capture detailed communication patterns, actions, and performance metrics as defined in Phase 2.",
-        "details": "Expand the `AgentModel` to include the full `interactions` array. Log each interaction with its timestamp, action, parameters, result, and execution time to `interactions.json`.",
-        "testStrategy": "Simulate a sequence of agent actions and verify the `interactions.json` log contains a detailed, ordered list of events with all required fields populated.",
+        "description": "Enhance the agent logging framework to capture detailed agent interactions, including communication patterns and decision trees, as defined in the Agent Model.",
+        "details": "Expand the agent logging endpoint to accept detailed interaction objects containing timestamp, action, parameters, result, and execution time. Store this structured data in `.../agents/<agent-id>/interactions.json`.",
+        "testStrategy": "Send a sequence of complex agent interaction events. Query the agent's data and verify that the `interactions.json` file contains a correctly ordered and formatted log of all events.",
         "priority": "medium",
         "dependencies": [
-          5
+          14
         ],
         "status": "pending",
         "subtasks": []
       },
       {
-        "id": 10,
-        "title": "Implement Missing Tool Detection",
-        "description": "Identify and log instances where an agent attempts to use a tool that is not available in its environment.",
-        "details": "Enhance the `toolRequests` data structure in the `AgentModel` to include an `available: boolean` field. When a tool request fails because the tool is missing, log this event specifically.",
-        "testStrategy": "Simulate an agent request for a non-existent tool. Verify the event is logged correctly with `available: false` and `success: false`. Test a new `notes://tools/missing` endpoint to retrieve this information.",
+        "id": 18,
+        "title": "Develop Missing Tool Detection Logic",
+        "description": "Implement the logic to identify and catalog tools that agents attempt to use but are not available in the environment.",
+        "details": "Enhance the tool usage tracking to specifically analyze tool requests where the `available` flag is false. Aggregate these failed requests and store them in a dedicated log or as part of the session summary. Create the `notes://tools/missing` endpoint to report these findings.",
+        "testStrategy": "Simulate tool requests for both available and unavailable tools. Call the `notes://tools/missing` endpoint and verify that it correctly lists only the tools that were requested but unavailable.",
         "priority": "low",
         "dependencies": [
-          6,
-          8
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 19,
+        "title": "Implement Agent Performance Metrics Collection",
+        "description": "Begin collecting agent performance metrics, focusing on execution time for interactions and tool requests.",
+        "details": "Ensure that the data models for agent interactions and tool requests include fields for execution time in milliseconds. The data collection endpoints should be updated to capture and store this timing information.",
+        "testStrategy": "Send test events with known execution times. Retrieve the stored data and verify that the timing information is present and accurate for both agent interactions and tool requests.",
+        "priority": "low",
+        "dependencies": [
+          17,
+          15
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 20,
+        "title": "Develop Initial Analytics Report Endpoint",
+        "description": "Create a basic analytics endpoint that generates a simple report summarizing key metrics from one or more sessions.",
+        "details": "Implement the `notes://analytics/report` endpoint. Initially, this endpoint should be able to calculate and return total session count, a list of frequently used tools, and a list of detected missing tools based on the collected data.",
+        "testStrategy": "Populate the storage with data from several simulated sessions. Call the analytics endpoint and verify that the generated report contains accurate counts and lists based on the underlying data.",
+        "priority": "low",
+        "dependencies": [
+          16,
+          18
         ],
         "status": "pending",
         "subtasks": []
@@ -678,7 +640,7 @@
     ],
     "metadata": {
       "created": "2025-07-30T19:02:41.449Z",
-      "updated": "2025-07-30T20:22:38.544Z",
+      "updated": "2025-07-30T20:25:07.397Z",
       "description": "Tasks for master context"
     }
   }

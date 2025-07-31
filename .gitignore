@@ -165,3 +165,11 @@ $RECYCLE.BIN/
 sessions/
 .session_notes/
 *.session
+
+# Logs
+dev-debug.log
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/
