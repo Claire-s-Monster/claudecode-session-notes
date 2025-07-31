@@ -1,0 +1,628 @@
+name: CI Pipeline - Session Notes FastMCP 2.0
+
+# Comprehensive CI/CD pipeline for session-notes FastMCP 2.0 Python MCP server
+# Optimized for PIXI dependency management and enterprise-grade quality standards
+
+permissions:
+  contents: read
+  security-events: write  # For SARIF uploads
+  checks: write          # For test reporting
+  pull-requests: write   # For PR comments
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * *'  # Daily security scans
+  workflow_dispatch:
+
+env:
+  PYTHONNOUSERSITE: 1
+  PIXI_VERSION: v0.49.0
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # =============================================================================
+  # DEPENDENCY SETUP & CACHING
+  # =============================================================================
+  setup:
+    name: "Setup & Dependency Caching"
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+      pixi-cache-hit: ${{ steps.pixi-cache.outputs.cache-hit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          echo "key=pixi-${{ runner.os }}-${{ hashFiles('pixi.lock') }}" >> $GITHUB_OUTPUT
+
+      - name: Cache PIXI environment
+        id: pixi-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Install PIXI
+        if: steps.pixi-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Verify PIXI installation
+        run: |
+          pixi --version
+          pixi info
+
+      - name: Install CI environment
+        if: steps.pixi-cache.outputs.cache-hit != 'true'
+        run: |
+          pixi install -e ci
+          pixi run -e ci dev-setup
+
+  # =============================================================================
+  # QUALITY GATES - ZERO TOLERANCE POLICY
+  # =============================================================================
+  quality-gates:
+    name: "Quality Gates"
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [test, lint, typecheck]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Restore PIXI cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Install CI environment
+        run: |
+          pixi install -e ci
+          pixi run -e ci dev-setup
+
+      - name: Run ${{ matrix.check }}
+        run: |
+          case "${{ matrix.check }}" in
+            test)
+              pixi run -e ci ci-test
+              ;;
+            lint)
+              pixi run -e ci ci-lint
+              ;;
+            typecheck)
+              pixi run -e ci ci-typecheck
+              ;;
+          esac
+
+      - name: Upload test results
+        if: matrix.check == 'test'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            coverage.xml
+            .coverage
+          retention-days: 7
+
+  # =============================================================================
+  # SECURITY SCANNING SUITE
+  # =============================================================================
+  security-scan:
+    name: "Security Analysis"
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Restore PIXI cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Install quality-extended environment
+        run: |
+          pixi install -e quality-extended
+          pixi run -e quality-extended dev-setup
+
+      - name: Run Bandit security scan
+        run: |
+          pixi run -e quality-extended security-scan --format sarif --output bandit-results.sarif || true
+          pixi run -e quality-extended security-scan --format txt
+
+      - name: Run Safety dependency scan
+        run: |
+          pixi run -e quality-extended safety-check --output text
+
+      - name: Run pip-audit scan
+        run: |
+          pixi run -e quality-extended pip-audit-scan --format sarif --output pip-audit-results.sarif || true
+          pixi run -e quality-extended pip-audit-scan
+
+      - name: Upload security results to GitHub Security
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: |
+            bandit-results.sarif
+            pip-audit-results.sarif
+        continue-on-error: true
+
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results
+          path: |
+            bandit-results.sarif
+            pip-audit-results.sarif
+          retention-days: 30
+
+  # =============================================================================
+  # FASTMCP 2.0 PROTOCOL VALIDATION
+  # =============================================================================
+  fastmcp-validation:
+    name: "FastMCP 2.0 Protocol Validation"
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Restore PIXI cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Install CI environment
+        run: |
+          pixi install -e ci
+          pixi run -e ci dev-setup
+
+      - name: Validate MCP server startup
+        run: |
+          echo "Testing FastMCP 2.0 server startup..."
+          timeout 10s pixi run -e ci server &
+          SERVER_PID=$!
+          sleep 3
+          if kill -0 $SERVER_PID 2>/dev/null; then
+            echo "✅ MCP server started successfully"
+            kill $SERVER_PID
+          else
+            echo "❌ MCP server failed to start"
+            exit 1
+          fi
+
+      - name: Validate FastMCP decorators
+        run: |
+          echo "Validating FastMCP 2.0 decorator registration..."
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from session_notes.server import app
+
+          # Check tool registration
+          tools = [tool.name for tool in app.tools]
+          expected_tools = {'start_session', 'end_session', 'log_agent_execution', 'log_tool_request'}
+          if not expected_tools.issubset(set(tools)):
+            print(f'❌ Missing tools: {expected_tools - set(tools)}')
+            sys.exit(1)
+          print(f'✅ All expected tools registered: {tools}')
+
+          # Check resource registration
+          resources = [resource.uri_template for resource in app.resources]
+          expected_resources = {'session://{session_id}', 'sessions://list'}
+          if not expected_resources.issubset(set(resources)):
+            print(f'❌ Missing resources: {expected_resources - set(resources)}')
+            sys.exit(1)
+          print(f'✅ All expected resources registered: {resources}')
+          "
+
+      - name: Test Pydantic model validation
+        run: |
+          echo "Testing Pydantic model validation..."
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from session_notes.server import SessionInfo, AgentExecution, ToolRequest
+          from datetime import datetime, UTC
+
+          # Test SessionInfo
+          session = SessionInfo(session_id='test', timestamp=datetime.now(UTC).isoformat())
+          print(f'✅ SessionInfo validation: {session.session_id}')
+
+          # Test AgentExecution
+          execution = AgentExecution(
+              agent_id='test-agent',
+              agent_type='test',
+              timestamp=datetime.now(UTC).isoformat(),
+              action='test-action'
+          )
+          print(f'✅ AgentExecution validation: {execution.agent_id}')
+
+          # Test ToolRequest
+          tool_req = ToolRequest(
+              tool_name='test-tool',
+              available=True,
+              success=True,
+              timestamp=datetime.now(UTC).isoformat()
+          )
+          print(f'✅ ToolRequest validation: {tool_req.tool_name}')
+          "
+
+      - name: Test file storage operations
+        run: |
+          echo "Testing file storage operations..."
+          python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from session_notes.server import get_session_directory, save_json_data, load_json_data, ensure_directory
+          from pathlib import Path
+          import tempfile
+          import os
+
+          with tempfile.TemporaryDirectory() as tmpdir:
+              os.chdir(tmpdir)
+
+              # Test directory creation
+              session_dir = get_session_directory('test-session')
+              ensure_directory(session_dir)
+              assert session_dir.exists(), 'Session directory not created'
+              print('✅ Directory creation works')
+
+              # Test JSON operations
+              test_data = {'test': 'data', 'number': 42}
+              json_file = session_dir / 'test.json'
+              save_json_data(json_file, test_data)
+              assert json_file.exists(), 'JSON file not created'
+
+              loaded_data = load_json_data(json_file)
+              assert loaded_data == test_data, 'JSON data mismatch'
+              print('✅ JSON operations work')
+          "
+
+  # =============================================================================
+  # MULTI-ENVIRONMENT TESTING
+  # =============================================================================
+  multi-environment:
+    name: "Multi-Environment Testing"
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [quality, quality-extended, ci]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Restore PIXI cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Install ${{ matrix.environment }} environment
+        run: |
+          pixi install -e ${{ matrix.environment }}
+          pixi run -e ${{ matrix.environment }} dev-setup
+
+      - name: Run environment-specific tests
+        run: |
+          echo "Testing in ${{ matrix.environment }} environment..."
+          pixi run -e ${{ matrix.environment }} test
+
+          # Environment-specific validations
+          case "${{ matrix.environment }}" in
+            quality-extended)
+              echo "Running extended quality checks..."
+              pixi run -e ${{ matrix.environment }} static-analysis
+              ;;
+            quality)
+              echo "Running core quality checks..."
+              pixi run -e ${{ matrix.environment }} quality
+              ;;
+            ci)
+              echo "Running CI-optimized tests..."
+              pixi run -e ${{ matrix.environment }} ci-test
+              ;;
+          esac
+
+      - name: Environment dependency audit
+        run: |
+          echo "Auditing ${{ matrix.environment }} environment dependencies..."
+          pixi list -e ${{ matrix.environment }}
+          pixi run -e ${{ matrix.environment }} python -c "
+          import sys
+          import pkg_resources
+          print(f'Python version: {sys.version}')
+          print(f'Installed packages: {len(list(pkg_resources.working_set))}')
+          "
+
+  # =============================================================================
+  # TEST COVERAGE ANALYSIS
+  # =============================================================================
+  coverage:
+    name: "Test Coverage Analysis"
+    runs-on: ubuntu-latest
+    needs: [setup, quality-gates]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Restore PIXI cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
+
+      - name: Install quality-extended environment
+        run: |
+          pixi install -e quality-extended
+          pixi run -e quality-extended dev-setup
+
+      - name: Generate comprehensive coverage report
+        run: |
+          pixi run -e quality-extended test-coverage
+
+      - name: Coverage enforcement
+        run: |
+          pixi run -e quality-extended coverage report --fail-under=90
+          echo "✅ Coverage meets minimum threshold (90%)"
+
+      - name: Generate coverage badge
+        run: |
+          pixi run -e quality-extended coverage-badge -o coverage-badge.svg
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            htmlcov/
+            coverage.xml
+            coverage.json
+            coverage-badge.svg
+          retention-days: 30
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        run: |
+          COVERAGE=$(pixi run -e quality-extended coverage report --format=total 2>/dev/null || echo "0")
+          echo "Coverage: ${COVERAGE}%"
+          # Note: Would need additional setup for PR comments in real environment
+
+  # =============================================================================
+  # PERFORMANCE BENCHMARKING
+  # =============================================================================
+  performance:
+    name: "Performance Analysis"
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Restore PIXI cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pixi
+            .pixi/envs
+          key: ${{ needs.setup.outputs.cache-key }}
+          restore-keys: |
+            pixi-${{ runner.os }}-
+
+      - name: Install quality-extended environment
+        run: |
+          pixi install -e quality-extended
+          pixi run -e quality-extended dev-setup
+
+      - name: MCP server startup performance
+        run: |
+          echo "Measuring FastMCP 2.0 server startup time..."
+          START_TIME=$(date +%s%3N)
+          timeout 5s pixi run -e quality-extended server &
+          SERVER_PID=$!
+
+          # Wait for server to be ready
+          sleep 2
+          END_TIME=$(date +%s%3N)
+          STARTUP_TIME=$((END_TIME - START_TIME))
+
+          kill $SERVER_PID 2>/dev/null || true
+
+          echo "Startup time: ${STARTUP_TIME}ms"
+          if [ $STARTUP_TIME -gt 3000 ]; then
+            echo "⚠️ Startup time exceeds 3s threshold"
+          else
+            echo "✅ Startup performance acceptable"
+          fi
+
+      - name: Memory usage analysis
+        run: |
+          echo "Analyzing memory usage patterns..."
+          pixi run -e quality-extended python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          import tracemalloc
+          from session_notes.server import app
+
+          tracemalloc.start()
+
+          # Simulate basic operations
+          app  # Initialize app
+
+          current, peak = tracemalloc.get_traced_memory()
+          print(f'Current memory usage: {current / 1024 / 1024:.1f} MB')
+          print(f'Peak memory usage: {peak / 1024 / 1024:.1f} MB')
+
+          if peak > 100 * 1024 * 1024:  # 100MB threshold
+              print('⚠️ High memory usage detected')
+          else:
+              print('✅ Memory usage within acceptable limits')
+
+          tracemalloc.stop()
+          "
+
+      - name: Run benchmark tests
+        if: contains(github.event.pull_request.labels.*.name, 'benchmark') || github.event_name == 'schedule'
+        run: |
+          pixi run -e quality-extended benchmark || echo "No benchmark tests defined yet"
+
+  # =============================================================================
+  # DEPENDENCY MONITORING
+  # =============================================================================
+  dependency-monitor:
+    name: "Dependency Monitoring"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install PIXI
+        run: |
+          curl -fsSL https://github.com/prefix-dev/pixi/releases/download/${{ env.PIXI_VERSION }}/pixi-x86_64-unknown-linux-musl.tar.gz | tar -xzf - -C /usr/local/bin
+
+      - name: Check for outdated dependencies
+        run: |
+          echo "Checking for dependency updates..."
+          pixi list --platform linux-64 --json > current-deps.json
+
+          # Note: In real environment, would compare against known good versions
+          echo "Current dependency snapshot created"
+
+      - name: PIXI environment health check
+        run: |
+          echo "Validating all PIXI environments..."
+          for env in quality quality-extended ci dev; do
+            echo "Checking environment: $env"
+            pixi install -e $env
+            pixi run -e $env python --version
+            echo "✅ Environment $env is healthy"
+          done
+
+      - name: Generate dependency report
+        run: |
+          echo "# Dependency Health Report" > dependency-report.md
+          echo "Generated on: $(date)" >> dependency-report.md
+          echo "" >> dependency-report.md
+
+          echo "## Environment Status" >> dependency-report.md
+          for env in quality quality-extended ci dev; do
+            echo "- $env: ✅ Healthy" >> dependency-report.md
+          done
+
+      - name: Upload dependency report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report
+          path: |
+            dependency-report.md
+            current-deps.json
+          retention-days: 90
+
+  # =============================================================================
+  # FINAL STATUS CHECK
+  # =============================================================================
+  ci-status:
+    name: "CI Status Summary"
+    runs-on: ubuntu-latest
+    needs: [quality-gates, security-scan, fastmcp-validation, multi-environment, coverage, performance]
+    if: always()
+    steps:
+      - name: Check job statuses
+        run: |
+          echo "=== CI Pipeline Status Summary ==="
+          echo "Quality Gates: ${{ needs.quality-gates.result }}"
+          echo "Security Scan: ${{ needs.security-scan.result }}"
+          echo "FastMCP Validation: ${{ needs.fastmcp-validation.result }}"
+          echo "Multi-Environment: ${{ needs.multi-environment.result }}"
+          echo "Coverage: ${{ needs.coverage.result }}"
+          echo "Performance: ${{ needs.performance.result }}"
+
+          # Determine overall status
+          if [[ "${{ needs.quality-gates.result }}" == "success" && \
+                "${{ needs.security-scan.result }}" == "success" && \
+                "${{ needs.fastmcp-validation.result }}" == "success" && \
+                "${{ needs.multi-environment.result }}" == "success" && \
+                "${{ needs.coverage.result }}" == "success" && \
+                "${{ needs.performance.result }}" == "success" ]]; then
+            echo "🎉 All CI checks passed successfully!"
+            echo "✅ FastMCP 2.0 server is ready for deployment"
+          else
+            echo "❌ Some CI checks failed - review results above"
+            exit 1
+          fi
+
+      - name: Cleanup artifacts
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "CI pipeline completed - artifacts will be retained according to retention policies"

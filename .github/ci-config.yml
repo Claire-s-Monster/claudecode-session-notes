@@ -1,0 +1,234 @@
+# CI Configuration for Session Notes FastMCP 2.0 Project
+# This file defines reusable configuration values and thresholds for all CI workflows
+
+# =============================================================================
+# PROJECT METADATA
+# =============================================================================
+project:
+  name: "session-notes"
+  type: "fastmcp-2.0-server"
+  python_version: "3.12"
+  framework: "FastMCP 2.0"
+
+# =============================================================================
+# DEPENDENCY MANAGEMENT
+# =============================================================================
+dependencies:
+  pixi_version: "v0.49.0"
+  platform_strategy: "linux-64"  # Primary platform for optimization
+  cache_strategy: "pixi-lock-based"
+
+  environments:
+    quality:
+      description: "Essential quality tools"
+      install_time_target: "90s"
+      use_case: "Basic CI validation"
+
+    quality-extended:
+      description: "Full quality + security"
+      install_time_target: "150s"
+      use_case: "Comprehensive testing"
+
+    ci:
+      description: "CI-optimized environment"
+      install_time_target: "120s"
+      use_case: "GitHub Actions optimization"
+
+    dev:
+      description: "Full development environment"
+      install_time_target: "250s"
+      use_case: "Local development"
+
+# =============================================================================
+# QUALITY GATES & THRESHOLDS
+# =============================================================================
+quality:
+  zero_tolerance_policy: true
+  fail_fast: false  # Show all errors for better debugging
+
+  coverage:
+    minimum_threshold: 90  # Matches pyproject.toml setting
+    target_threshold: 95
+    enforcement: "strict"
+
+  testing:
+    timeout_unit: 30  # seconds for unit tests
+    timeout_integration: 60  # seconds for integration tests
+    timeout_e2e: 120  # seconds for e2e tests
+    parallel_execution: true
+
+  linting:
+    critical_only: ["F", "E9"]  # Critical violations for fast feedback
+    full_scan_stages: ["manual", "ci"]
+    auto_fix: true
+
+  type_checking:
+    strict_mode: false  # Gradual adoption
+    ignore_missing_imports: true
+    enforce_on: ["ci", "pre-commit"]
+
+# =============================================================================
+# SECURITY SCANNING
+# =============================================================================
+security:
+  daily_audit: true
+  sarif_upload: true
+
+  tools:
+    bandit:
+      severity_level: "high"
+      exclude_dirs: ["tests", "scripts"]
+      output_formats: ["sarif", "txt"]
+
+    safety:
+      ignore_vulnerabilities: ["70929", "70912"]  # Common false positives
+      output_formats: ["json", "text"]
+
+    pip_audit:
+      output_formats: ["sarif", "text"]
+      verbose: true
+
+# =============================================================================
+# PERFORMANCE MONITORING
+# =============================================================================
+performance:
+  monitoring_enabled: true
+  regression_detection: true
+
+  thresholds:
+    import_time_ms: 500      # Maximum module import time
+    startup_time_ms: 3000    # Maximum server startup time
+    memory_usage_mb: 100     # Maximum memory usage
+
+  protocol_performance:
+    start_session_ms: 50     # Maximum time per session start
+    log_execution_ms: 20     # Maximum time per log operation
+    get_session_ms: 30       # Maximum time per session retrieval
+
+  benchmarking:
+    run_on_main: true
+    run_on_pr: "performance-label"
+    baseline_comparison: true
+
+# =============================================================================
+# FASTMCP 2.0 SPECIFIC VALIDATION
+# =============================================================================
+fastmcp:
+  version: "2.0"
+
+  validation:
+    server_startup: true
+    decorator_registration: true
+    protocol_compliance: true
+    pydantic_models: true
+
+  expected_tools:
+    - "start_session"
+    - "end_session"
+    - "log_agent_execution"
+    - "log_tool_request"
+
+  expected_resources:
+    - "session://{session_id}"
+    - "sessions://list"
+
+  data_models:
+    - "SessionInfo"
+    - "AgentExecution"
+    - "ToolRequest"
+
+# =============================================================================
+# CI WORKFLOW CONFIGURATION
+# =============================================================================
+workflows:
+  main_ci:
+    name: "CI Pipeline - Session Notes FastMCP 2.0"
+    trigger_branches: ["main", "develop", "feature/*"]
+    parallel_jobs: true
+    job_timeout: 30  # minutes
+
+  security_audit:
+    name: "Security Audit - Daily Monitoring"
+    schedule: "0 6 * * *"  # Daily at 6 AM UTC
+    retention_days: 90
+
+  performance:
+    name: "Performance Monitoring"
+    trigger_paths: ["src/**/*.py", "pyproject.toml", "pixi.lock"]
+    baseline_branch: "main"
+    retention_days: 30
+
+# =============================================================================
+# ARTIFACT MANAGEMENT
+# =============================================================================
+artifacts:
+  test_results:
+    retention_days: 7
+    include:
+      - "coverage.xml"
+      - ".coverage"
+      - "htmlcov/"
+
+  security_results:
+    retention_days: 30
+    include:
+      - "*.sarif"
+      - "safety-*.json"
+
+  performance_results:
+    retention_days: 30
+    include:
+      - "performance-*.json"
+      - "memory-profile.json"
+      - "performance-summary.md"
+
+  dependency_reports:
+    retention_days: 90
+    include:
+      - "dependency-report.md"
+      - "current-deps.json"
+
+# =============================================================================
+# NOTIFICATION & REPORTING
+# =============================================================================
+notifications:
+  failure_notifications: true
+  security_alerts: true
+  performance_regressions: true
+
+  channels:
+    pr_comments: true
+    security_tab: true
+    checks_api: true
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# =============================================================================
+environment:
+  global:
+    PYTHONNOUSERSITE: "1"
+    CLAUDECODE: "0"  # Disable Claude Code integration in CI
+    ENVIRONMENT: "ci"
+
+  pixi_activation:
+    PYTHONPATH: "src"
+
+  testing:
+    PYTEST_TIMEOUT: "120"
+    COVERAGE_FAIL_UNDER: "90"
+
+# =============================================================================
+# COMPLIANCE & GOVERNANCE
+# =============================================================================
+compliance:
+  enterprise_grade: true
+  security_scanning_mandatory: true
+  coverage_enforcement: true
+  dependency_monitoring: true
+  performance_monitoring: true
+
+  policies:
+    zero_tolerance_quality: true
+    fail_on_security_high: true
+    fail_on_coverage_below_threshold: true
+    fail_on_performance_regression: true
