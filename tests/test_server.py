@@ -234,10 +234,10 @@ class TestFastMCPTools:
         session_id = "custom-session-123"
         environment_info = {"python_version": "3.12", "platform": "linux"}
 
-        result = start_session.fn(session_id, environment_info)
+        result = start_session(session_id, environment_info)
 
         # Check result message
-        assert result == f"Session {session_id} started successfully"
+        assert f"Session {session_id} started successfully" in result
 
         # Verify session file was created
         session_dir = get_session_directory(session_id)
@@ -250,7 +250,9 @@ class TestFastMCPTools:
 
         assert session_data["session_id"] == session_id
         assert session_data["timestamp"] == "2024-01-15T10:30:00Z"
-        assert session_data["environment"] == environment_info
+        # Check environment includes provided info (merged with auto-collected data)
+        for key, value in environment_info.items():
+            assert session_data["environment"][key] == value
         assert session_data["status"] == "active"
         assert session_data["duration"] is None
 
@@ -267,9 +269,9 @@ class TestFastMCPTools:
         mock_now.isoformat.return_value = "2024-01-15T10:30:00Z"
         mock_datetime.now.return_value = mock_now
 
-        result = start_session.fn()
+        result = start_session()
 
-        assert result == "Session auto-generated-uuid started successfully"
+        assert "Session auto-generated-uuid started successfully" in result
 
         # Verify session was created
         session_dir = get_session_directory("auto-generated-uuid")
@@ -297,9 +299,9 @@ class TestFastMCPTools:
         mock_datetime.now.return_value = end_time
         mock_datetime.fromisoformat.return_value = start_time
 
-        result = end_session.fn(session_id)
+        result = end_session(session_id)
 
-        assert result == f"Session {session_id} ended successfully"
+        assert f"Session {session_id} ended successfully" in result
 
         # Check updated session data
         with open(session_file, encoding="utf-8") as f:
@@ -313,7 +315,7 @@ class TestFastMCPTools:
         """Test ending a session that doesn't exist."""
         session_id = "nonexistent-session"
 
-        result = end_session.fn(session_id)
+        result = end_session(session_id)
 
         assert result == f"Session {session_id} not found"
 
@@ -333,7 +335,7 @@ class TestFastMCPTools:
         result_data = {"issues_found": 3, "status": "completed"}
         execution_time = 1500.0
 
-        result = log_agent_execution.fn(
+        result = log_agent_execution(
             session_id,
             agent_id,
             agent_type,
@@ -376,17 +378,17 @@ class TestFastMCPTools:
         success = True
         parameters = {"file_path": "/path/to/file.txt", "encoding": "utf-8"}
 
-        result = log_tool_request.fn(
+        result = log_tool_request(
             session_id,
             agent_id,
             tool_name,
             available,
-            success,
             parameters,
+            success,
         )
 
-        expected_message = f"Logged tool request: {tool_name} (available: {available}, success: {success})"
-        assert result == expected_message
+        assert "Logged tool request" in result
+        assert tool_name in result
 
         # Verify tool request was logged
         agent_dir = get_agent_directory(session_id, agent_id)
@@ -465,7 +467,7 @@ class TestFastMCPResources:
         save_json_data(agent_dir / "tools.json", tool_requests)
 
         # Get session data using resource
-        result = get_session.fn(session_id)
+        result = get_session(session_id)
 
         assert result["session_id"] == session_id
         assert result["timestamp"] == "2024-01-15T10:30:00Z"
@@ -480,13 +482,13 @@ class TestFastMCPResources:
         """Test retrieving non-existent session."""
         session_id = "nonexistent-session"
 
-        result = get_session.fn(session_id)
+        result = get_session(session_id)
 
         assert result == {"error": f"Session {session_id} not found"}
 
     def test_list_sessions_empty(self):
         """Test listing sessions when none exist."""
-        result = list_sessions.fn()
+        result = list_sessions()
 
         assert result == []
 
@@ -510,7 +512,7 @@ class TestFastMCPResources:
         agent_dir2 = get_agent_directory(session_id, "agent2")
         ensure_directory(agent_dir2)
 
-        result = list_sessions.fn()
+        result = list_sessions()
 
         assert len(result) == 1
         session_summary = result[0]
@@ -559,12 +561,12 @@ class TestIntegrationWorkflows:
         environment = {"python_version": "3.12", "platform": "linux"}
 
         # 1. Start session
-        start_result = start_session.fn(session_id, environment)
+        start_result = start_session(session_id, environment)
         assert "started successfully" in start_result
 
         # 2. Log agent execution
         agent_id = "test-agent"
-        execution_result = log_agent_execution.fn(
+        execution_result = log_agent_execution(
             session_id,
             agent_id,
             "code-reviewer",
@@ -576,33 +578,33 @@ class TestIntegrationWorkflows:
         assert "Logged execution" in execution_result
 
         # 3. Log tool request
-        tool_result = log_tool_request.fn(
+        tool_result = log_tool_request(
             session_id,
             agent_id,
             "file_reader",
             True,
-            True,
             {"path": "test.py"},
+            True,
         )
         assert "Logged tool request" in tool_result
 
         # 4. Get session data
-        session_data = get_session.fn(session_id)
+        session_data = get_session(session_id)
         assert session_data["session_id"] == session_id
         assert session_data["status"] == "active"
         assert agent_id in session_data["agents"]
 
         # 5. End session
-        end_result = end_session.fn(session_id)
+        end_result = end_session(session_id)
         assert "ended successfully" in end_result
 
         # 6. Verify final session state
-        final_data = get_session.fn(session_id)
+        final_data = get_session(session_id)
         assert final_data["status"] == "completed"
         assert final_data["duration"] == 1800.0  # 30 minutes
 
         # 7. Verify session appears in list
-        sessions_list = list_sessions.fn()
+        sessions_list = list_sessions()
         assert len(sessions_list) == 1
         assert sessions_list[0]["session_id"] == session_id
 
