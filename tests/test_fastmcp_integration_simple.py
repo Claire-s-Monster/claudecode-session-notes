@@ -51,12 +51,12 @@ class TestBasicMCPCompliance:
         from session_notes.server import end_session, start_session
 
         # Test start_session
-        result = start_session.fn("test-session")
+        result = start_session("test-session")
         assert isinstance(result, str)
         assert "started successfully" in result
 
         # Test end_session (will not find session but should return string)
-        result = end_session.fn("test-session")
+        result = end_session("test-session")
         assert isinstance(result, str)
 
     def test_direct_resource_calls(self):
@@ -64,12 +64,12 @@ class TestBasicMCPCompliance:
         from session_notes.server import get_session, list_sessions
 
         # Test get_session (non-existent session)
-        result = get_session.fn("nonexistent")
+        result = get_session("nonexistent")
         assert isinstance(result, dict)
         assert "error" in result
 
         # Test list_sessions (empty list)
-        result = list_sessions.fn()
+        result = list_sessions()
         assert isinstance(result, list)
 
 

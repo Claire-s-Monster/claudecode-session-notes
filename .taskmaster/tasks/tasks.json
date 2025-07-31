@@ -514,7 +514,7 @@
         "testStrategy": "Verify that the PIXI environment can be created successfully. Run the server and confirm it starts without errors. Attempt to register the server with a ClaudeCode client to ensure basic connectivity.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -527,8 +527,51 @@
         "dependencies": [
           11
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Core Storage Utility Module and Base Directory",
+            "description": "Develop a Python module with core utility functions for file system operations, such as safe directory creation. This includes implementing the logic to ensure the base storage directory (`.claude/session-notes/`) exists.",
+            "dependencies": [],
+            "details": "This module will contain helper functions like `ensure_dir_exists(path)` and basic JSON I/O stubs. The primary goal is to establish a reliable foundation for creating the required directory structure by ensuring the root `.claude/session-notes/` path is created safely on first use.\n<info added on 2025-07-31T02:18:56.673Z>\n**Update:** Analysis confirms the core storage utilities are already implemented in `server.py` (lines 80-112). The existing implementation, which includes `get_session_directory`, `get_agent_directory`, `ensure_directory`, `save_json_data`, and `load_json_data`, already meets this subtask's requirements. The next step is to validate the existing code with tests and then consider extracting it into a separate module for better organization.\n</info added on 2025-07-31T02:18:56.673Z>",
+            "status": "done",
+            "testStrategy": "Write unit tests to verify that the base directory is created if it doesn't exist and that the function handles cases where it already exists without errors."
+          },
+          {
+            "id": 2,
+            "title": "Implement Session Directory and `session.json` Creation",
+            "description": "Create a function that, for a new session, creates the specific session directory (`.claude/session-notes/<session-id>/`) and initializes it with a placeholder `session.json` file.",
+            "dependencies": [
+              "12.1"
+            ],
+            "details": "This function will use the utilities from the core module. It will be responsible for creating the session-specific folder and the `agents` subdirectory within it. It will also write an initial, empty or default, `session.json` file to the session directory.\n<info added on 2025-07-31T02:40:31.946Z>\n**UPDATE:** Analysis of the existing implementation in `server.py` (lines 119-154) indicates the `start_session()` function already fulfills this subtask's requirements:\n*   It creates the session-specific directory using `get_session_directory()` and `ensure_directory()`.\n*   It initializes and saves a `session.json` file with the correct session metadata.\n*   The `agents` subdirectory is created as needed by dependent functions like `get_agent_directory()`.\n\nGiven this, the implementation is considered complete. The remaining work for this subtask is to write and execute targeted tests to formally validate that the existing code meets all specified requirements.\n</info added on 2025-07-31T02:40:31.946Z>\n<info added on 2025-07-31T02:44:13.836Z>\n**VALIDATION COMPLETE:** All tests passed. The existing `start_session()` function in `server.py` has been successfully validated. Testing confirmed correct session directory creation (`.claude/session-notes/<session-id>/`), proper `session.json` file generation with environment metadata, and correct handling of auto-generated UUIDs. The implementation is verified and meets all requirements for this subtask.\n</info added on 2025-07-31T02:44:13.836Z>",
+            "status": "done",
+            "testStrategy": "Test the function by providing a sample session ID. Verify that the correct directory structure (`<session-id>/agents/`) is created and that `session.json` exists and contains a valid, empty JSON object."
+          },
+          {
+            "id": 3,
+            "title": "Implement Agent-Specific Directory and `execution.json` Creation",
+            "description": "Develop a function to create the storage directory for a new agent (`.../agents/<agent-id>/`) within an existing session and create the placeholder `execution.json` file.",
+            "dependencies": [
+              "12.2"
+            ],
+            "details": "This function will take a `session-id` and `agent-id` as arguments. It will use the core utilities to create the agent-specific directory inside the session's `agents` folder and then create the `execution.json` file within that new directory.\n<info added on 2025-07-31T02:45:37.007Z>\n**Analysis of Existing Implementation:**\nThe `log_agent_execution()` function in `server.py` (lines 198-249) already fulfills this subtask's requirements:\n1.  **Agent Directory Creation:** It correctly creates the agent-specific directory (`.../agents/<agent-id>/`) using `get_agent_directory()` and `ensure_directory()`.\n2.  **`execution.json` Management:** It loads existing executions, appends new records, and saves the updated data back to `execution.json`.\n\nThe implementation is already in place. The focus of this subtask now shifts to writing targeted tests to validate this existing functionality.\n</info added on 2025-07-31T02:45:37.007Z>\n<info added on 2025-07-31T02:47:29.957Z>\ninfo added on 2025-07-31T03:15:00.000Z\n**Validation Complete:**\nTesting has successfully validated the existing functionality. The `log_agent_execution()` and `log_tool_request()` functions in `server.py` fully satisfy the requirements of this subtask.\nTest results confirm:\n- Correct creation of agent-specific directories and the full session hierarchy.\n- `execution.json` is created and properly appended with new execution records.\n- Data for multiple agents and multiple executions is isolated and tracked correctly.\n- Tool requests are successfully logged to `tools.json`.\n- JSON data integrity is maintained across all operations.\n\nThe existing implementation is confirmed to be complete and correct. No new code was required.\n</info added on 2025-07-31T02:47:29.957Z>",
+            "status": "done",
+            "testStrategy": "For a pre-existing session directory, call the function with a new agent ID. Verify that the agent's subdirectory is created correctly and contains an empty `execution.json` file."
+          },
+          {
+            "id": 4,
+            "title": "Develop High-Level JSON Data I/O Handlers",
+            "description": "Implement robust, high-level functions for reading from and writing data to the specific JSON files within the established directory structure, handling file paths and potential errors.",
+            "dependencies": [
+              "12.3"
+            ],
+            "details": "Create functions like `read_session_json(session_id, filename)` and `write_agent_json(session_id, agent_id, filename, data)`. These handlers will abstract the file path logic and include error handling for file I/O and JSON serialization/deserialization.\n<info added on 2025-07-31T02:48:39.415Z>\nThe implementation will involve creating these high-level functions as wrappers around the existing generic `save_json_data` and `load_json_data` utilities. The key responsibility of these new functions is to abstract away the file path construction logic, automatically generating the correct path from `session_id` and `agent_id` parameters. This will provide a cleaner, more usable API for the rest of the application, ensuring consistent path handling and enabling more specific, context-aware error handling.\n</info added on 2025-07-31T02:48:39.415Z>\n<info added on 2025-07-31T02:52:46.932Z>\nIMPLEMENTATION AND VALIDATION COMPLETE: The high-level JSON data I/O handlers have been successfully implemented in `server.py` and validated. The implementation includes `read/write_session_json`, `read/write_agent_json`, and utility functions `session_exists`, `agent_exists`, and `list_session_agents`. Testing confirmed that all I/O operations, default value handling, and error handling for invalid JSON work correctly. The new handlers successfully abstract path construction and provide a clean, integrated API for the storage layer.\n</info added on 2025-07-31T02:52:46.932Z>",
+            "status": "done",
+            "testStrategy": "Write unit tests for the I/O handlers. Test writing a Python dictionary to `session.json` and `execution.json`, then reading it back to verify data integrity. Test error handling for non-existent files or invalid JSON."
+          }
+        ]
       },
       {
         "id": 13,
@@ -540,7 +583,7 @@
         "dependencies": [
           12
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -640,7 +683,7 @@
     ],
     "metadata": {
       "created": "2025-07-30T19:02:41.449Z",
-      "updated": "2025-07-30T20:25:07.397Z",
+      "updated": "2025-07-31T03:09:25.065Z",
       "description": "Tasks for master context"
     }
   }
