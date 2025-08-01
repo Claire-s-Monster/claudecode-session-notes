@@ -95,6 +95,74 @@ class AgentMetadata(BaseModel):
     )
 
 
+class AgentInteraction(BaseModel):
+    """
+    Detailed agent interaction information for enhanced behavioral tracking.
+
+    This model captures rich interaction data including decision-making processes,
+    communication patterns, and contextual information beyond basic execution logging.
+    """
+
+    interaction_id: str = Field(description="Unique interaction identifier")
+    agent_id: str = Field(description="Unique agent identifier")
+    agent_type: str = Field(description="Type of agent")
+    timestamp: str = Field(description="Interaction timestamp (ISO8601)")
+
+    # Core interaction data (similar to AgentExecution but more comprehensive)
+    action: str = Field(description="Primary action or behavior performed")
+    interaction_type: str = Field(
+        description="Type of interaction (e.g., 'decision', 'communication', 'analysis', 'workflow')"
+    )
+    parameters: dict[str, Any] = Field(
+        default_factory=dict, description="Action parameters and input data"
+    )
+    result: dict[str, Any] | None = Field(
+        None, description="Interaction result and output data"
+    )
+    execution_time: float | None = Field(
+        None, description="Execution time in milliseconds"
+    )
+
+    # Enhanced contextual information
+    context: dict[str, Any] = Field(
+        default_factory=dict, description="Context that triggered this interaction"
+    )
+    decision_context: dict[str, Any] | None = Field(
+        None,
+        description="Decision-making context: alternatives considered, reasoning, criteria",
+    )
+    communication_data: dict[str, Any] | None = Field(
+        None, description="Communication patterns and data exchange information"
+    )
+
+    # Relationship and workflow information
+    parent_interaction_id: str | None = Field(
+        None, description="Parent interaction ID for hierarchical interactions"
+    )
+    related_execution_ids: list[str] = Field(
+        default_factory=list, description="Related execution IDs from execution.json"
+    )
+    workflow_stage: str | None = Field(
+        None, description="Stage in a larger workflow or process"
+    )
+
+    # Outcome and assessment
+    success: bool = Field(
+        default=True, description="Whether the interaction was successful"
+    )
+    outcome_assessment: dict[str, Any] | None = Field(
+        None, description="Assessment of interaction outcomes and effectiveness"
+    )
+
+    # Additional metadata
+    tags: list[str] = Field(
+        default_factory=list, description="Categorization tags for this interaction"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional interaction-specific metadata"
+    )
+
+
 # =============================================================================
 # ENVIRONMENT COLLECTION UTILITIES
 # =============================================================================
@@ -688,6 +756,94 @@ def _log_tool_request_impl(
     return f"Logged tool request for agent {agent_id}: {tool_name}"
 
 
+def _log_agent_interaction_impl(
+    session_id: str,
+    agent_id: str,
+    agent_type: str,
+    action: str,
+    interaction_type: str = "general",
+    parameters: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
+    execution_time: float | None = None,
+    context: dict[str, Any] | None = None,
+    decision_context: dict[str, Any] | None = None,
+    communication_data: dict[str, Any] | None = None,
+    parent_interaction_id: str | None = None,
+    related_execution_ids: list[str] | None = None,
+    workflow_stage: str | None = None,
+    success: bool = True,
+    outcome_assessment: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    interaction_id: str | None = None,
+    auto_register: bool = True,
+) -> str:
+    """
+    Internal implementation for logging detailed agent interactions.
+    This function contains the actual business logic and is directly callable.
+    """
+    # Auto-register agent if it doesn't exist and auto_register is enabled
+    if auto_register and not agent_exists(session_id, agent_id):
+        logger.info(f"Auto-registering agent {agent_id} of type {agent_type}")
+        _register_agent_impl(
+            session_id=session_id,
+            agent_id=agent_id,
+            agent_type=agent_type,
+            purpose=f"Auto-registered during interaction logging for action: {action}",
+            registration_context={
+                "auto_registered": True,
+                "first_action": action,
+                "registration_trigger": "log_agent_interaction",
+            },
+        )
+
+    # Create agent directory if it doesn't exist
+    agent_dir = get_agent_directory(session_id, agent_id)
+    ensure_directory(agent_dir)
+
+    # Generate interaction ID if not provided
+    if interaction_id is None:
+        interaction_id = str(uuid.uuid4())
+
+    # Create interaction entry
+    interaction = AgentInteraction(
+        interaction_id=interaction_id,
+        agent_id=agent_id,
+        agent_type=agent_type,
+        timestamp=datetime.now(UTC).isoformat(),
+        action=action,
+        interaction_type=interaction_type,
+        parameters=parameters or {},
+        result=result,
+        execution_time=execution_time,
+        context=context or {},
+        decision_context=decision_context,
+        communication_data=communication_data,
+        parent_interaction_id=parent_interaction_id,
+        related_execution_ids=related_execution_ids or [],
+        workflow_stage=workflow_stage,
+        success=success,
+        outcome_assessment=outcome_assessment,
+        tags=tags or [],
+        metadata=metadata or {},
+    )
+
+    # Load existing interaction log
+    interactions_file = agent_dir / "interactions.json"
+    interactions = load_json_data(interactions_file, [])
+
+    # Add new interaction
+    interactions.append(interaction.model_dump())
+
+    # Save updated interaction log
+    save_json_data(interactions_file, interactions)
+
+    logger.info(
+        f"Logged agent interaction: {agent_id} - {action} ({interaction_type}) [ID: {interaction_id}]"
+    )
+    return f"Logged interaction for agent {agent_id}: {action} (ID: {interaction_id})"
+
+
 def _register_agent_impl(
     session_id: str,
     agent_id: str | None = None,
@@ -732,7 +888,7 @@ def _register_agent_impl(
     metadata_file = agent_dir / "metadata.json"
     save_json_data(metadata_file, agent_metadata.model_dump())
 
-    # Initialize empty execution and tools logs if they don't exist
+    # Initialize empty execution, tools, and interactions logs if they don't exist
     execution_file = agent_dir / "execution.json"
     if not execution_file.exists():
         save_json_data(execution_file, [])
@@ -740,6 +896,10 @@ def _register_agent_impl(
     tools_file = agent_dir / "tools.json"
     if not tools_file.exists():
         save_json_data(tools_file, [])
+
+    interactions_file = agent_dir / "interactions.json"
+    if not interactions_file.exists():
+        save_json_data(interactions_file, [])
 
     logger.info(f"Registered agent: {agent_id} ({agent_type}) in session {session_id}")
     return f"Agent {agent_id} registered successfully in session {session_id}"
@@ -769,11 +929,13 @@ def _get_agent_metadata_impl(session_id: str, agent_id: str) -> dict[str, Any]:
     # Add current statistics
     execution_count = len(load_json_data(agent_dir / "execution.json", []))
     tool_request_count = len(load_json_data(agent_dir / "tools.json", []))
+    interaction_stats = get_agent_interaction_statistics(session_id, agent_id)
 
     agent_metadata["statistics"] = {
         "execution_count": execution_count,
         "tool_request_count": tool_request_count,
         "last_activity": get_last_agent_activity(session_id, agent_id),
+        "interactions": interaction_stats,
     }
 
     return agent_metadata  # type: ignore[no-any-return]
@@ -820,7 +982,109 @@ def get_last_agent_activity(session_id: str, agent_id: str) -> str | None:
             if last_timestamp is None or (tool_last and tool_last > last_timestamp):
                 last_timestamp = tool_last
 
+    # Check interactions log
+    interactions = load_json_data(agent_dir / "interactions.json", [])
+    if interactions:
+        interaction_timestamps = [
+            interaction_data.get("timestamp")
+            for interaction_data in interactions
+            if isinstance(interaction_data, dict) and "timestamp" in interaction_data
+        ]
+        if interaction_timestamps:
+            interaction_last = max(interaction_timestamps)  # type: ignore[type-var]
+            if last_timestamp is None or (
+                interaction_last and interaction_last > last_timestamp
+            ):
+                last_timestamp = interaction_last
+
     return last_timestamp
+
+
+def get_agent_interaction_statistics(session_id: str, agent_id: str) -> dict[str, Any]:
+    """
+    Get comprehensive interaction statistics for an agent.
+
+    Args:
+        session_id: Session identifier
+        agent_id: Agent identifier
+
+    Returns:
+        Dictionary containing interaction statistics
+    """
+    if not agent_exists(session_id, agent_id):
+        return {}
+
+    agent_dir = get_agent_directory(session_id, agent_id)
+    interactions = load_json_data(agent_dir / "interactions.json", [])
+
+    if not interactions:
+        return {
+            "total_interactions": 0,
+            "interaction_types": {},
+            "success_rate": 0.0,
+            "avg_execution_time": None,
+            "workflow_stages": [],
+            "communication_count": 0,
+            "decision_count": 0,
+        }
+
+    # Basic counts
+    total_interactions = len(interactions)
+    successful_interactions = sum(
+        1 for i in interactions if isinstance(i, dict) and i.get("success", True)
+    )
+    success_rate = (
+        successful_interactions / total_interactions if total_interactions > 0 else 0.0
+    )
+
+    # Interaction type analysis
+    interaction_types: dict[str, int] = {}
+    for interaction in interactions:
+        if isinstance(interaction, dict):
+            itype = interaction.get("interaction_type", "unknown")
+            interaction_types[itype] = interaction_types.get(itype, 0) + 1
+
+    # Execution time analysis
+    execution_times: list[float] = []
+    for i in interactions:
+        if isinstance(i, dict) and i.get("execution_time") is not None:
+            exec_time = i.get("execution_time")
+            if isinstance(exec_time, (int, float)):
+                execution_times.append(float(exec_time))
+    avg_execution_time = (
+        sum(execution_times) / len(execution_times) if execution_times else None
+    )
+
+    # Workflow and communication analysis
+    workflow_stages = list(
+        set(
+            i.get("workflow_stage")
+            for i in interactions
+            if isinstance(i, dict) and i.get("workflow_stage")
+        )
+    )
+
+    communication_count = sum(
+        1
+        for i in interactions
+        if isinstance(i, dict) and i.get("communication_data") is not None
+    )
+
+    decision_count = sum(
+        1
+        for i in interactions
+        if isinstance(i, dict) and i.get("decision_context") is not None
+    )
+
+    return {
+        "total_interactions": total_interactions,
+        "interaction_types": interaction_types,
+        "success_rate": success_rate,
+        "avg_execution_time": avg_execution_time,
+        "workflow_stages": workflow_stages,
+        "communication_count": communication_count,
+        "decision_count": decision_count,
+    }
 
 
 def _get_session_impl(session_id: str) -> dict[str, Any]:
@@ -849,6 +1113,9 @@ def _get_session_impl(session_id: str) -> dict[str, Any]:
                     "metadata": load_json_data(agent_path / "metadata.json", {}),
                     "executions": load_json_data(agent_path / "execution.json", []),
                     "tool_requests": load_json_data(agent_path / "tools.json", []),
+                    "interactions": load_json_data(
+                        agent_path / "interactions.json", []
+                    ),
                 }
                 session_data["agents"][agent_id] = agent_data
 
@@ -1120,8 +1387,647 @@ def log_tool_request(
     )
 
 
+@app.tool()
+def log_agent_interaction(
+    session_id: str,
+    agent_id: str,
+    agent_type: str,
+    action: str,
+    interaction_type: str = "general",
+    parameters: dict[str, Any] | None = None,
+    result: dict[str, Any] | None = None,
+    execution_time: float | None = None,
+    context: dict[str, Any] | None = None,
+    decision_context: dict[str, Any] | None = None,
+    communication_data: dict[str, Any] | None = None,
+    parent_interaction_id: str | None = None,
+    related_execution_ids: list[str] | None = None,
+    workflow_stage: str | None = None,
+    success: bool = True,
+    outcome_assessment: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+    interaction_id: str | None = None,
+    auto_register: bool = True,
+) -> str:
+    """
+    Log detailed agent interactions with enhanced behavioral tracking.
+
+    This tool captures rich interaction data including decision-making processes,
+    communication patterns, and contextual information beyond basic execution logging.
+
+    Args:
+        session_id: Session ID
+        agent_id: Unique agent identifier
+        agent_type: Type of agent (e.g., "code-reviewer", "task-executor")
+        action: Primary action or behavior performed
+        interaction_type: Type of interaction (e.g., "decision", "communication", "analysis", "workflow")
+        parameters: Optional action parameters and input data
+        result: Optional interaction result and output data
+        execution_time: Optional execution time in milliseconds
+        context: Optional context that triggered this interaction
+        decision_context: Optional decision-making context (alternatives, reasoning, criteria)
+        communication_data: Optional communication patterns and data exchange information
+        parent_interaction_id: Optional parent interaction ID for hierarchical interactions
+        related_execution_ids: Optional list of related execution IDs from execution.json
+        workflow_stage: Optional stage in a larger workflow or process
+        success: Whether the interaction was successful (default: True)
+        outcome_assessment: Optional assessment of interaction outcomes and effectiveness
+        tags: Optional categorization tags for this interaction
+        metadata: Optional additional interaction-specific metadata
+        interaction_id: Optional unique interaction identifier (will generate if not provided)
+        auto_register: Whether to automatically register the agent if it doesn't exist
+
+    Returns:
+        Logging confirmation with interaction ID
+    """
+    return _log_agent_interaction_impl(
+        session_id=session_id,
+        agent_id=agent_id,
+        agent_type=agent_type,
+        action=action,
+        interaction_type=interaction_type,
+        parameters=parameters,
+        result=result,
+        execution_time=execution_time,
+        context=context,
+        decision_context=decision_context,
+        communication_data=communication_data,
+        parent_interaction_id=parent_interaction_id,
+        related_execution_ids=related_execution_ids,
+        workflow_stage=workflow_stage,
+        success=success,
+        outcome_assessment=outcome_assessment,
+        tags=tags,
+        metadata=metadata,
+        interaction_id=interaction_id,
+        auto_register=auto_register,
+    )
+
+
 # =============================================================================
-# FASTMCP 2.0 RESOURCES - DATA ACCESS
+# INTERNAL CLI DATA QUERY IMPLEMENTATIONS
+# =============================================================================
+
+
+def _list_sessions_cli_impl(
+    status_filter: str | None = None,
+    sort_by: str = "timestamp",
+    reverse: bool = True,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Internal implementation for CLI-friendly session listing with filtering and sorting.
+    """
+    sessions_dir = Path(".claude/session-notes")
+
+    if not sessions_dir.exists():
+        return []
+
+    sessions = []
+    for session_path in sessions_dir.iterdir():
+        if session_path.is_dir():
+            session_file = session_path / "session.json"
+            if session_file.exists():
+                session_data = load_json_data(session_file, {})
+
+                # Apply status filter if specified
+                if status_filter and session_data.get("status") != status_filter:
+                    continue
+
+                # Create CLI-friendly summary
+                summary = {
+                    "session_id": session_data.get("session_id", session_path.name),
+                    "timestamp": session_data.get("timestamp"),
+                    "status": session_data.get("status", "unknown"),
+                    "duration": session_data.get("duration"),
+                    "end_timestamp": session_data.get("end_timestamp"),
+                }
+
+                # Add comprehensive agent information
+                agents_dir = session_path / "agents"
+                agent_count = 0
+                agent_types = set()
+                total_executions = 0
+                total_tool_requests = 0
+                total_interactions = 0
+
+                if agents_dir.exists():
+                    for agent_dir in agents_dir.iterdir():
+                        if agent_dir.is_dir():
+                            agent_count += 1
+
+                            # Load agent metadata for type information
+                            metadata = load_json_data(agent_dir / "metadata.json", {})
+                            if metadata.get("agent_type"):
+                                agent_types.add(metadata["agent_type"])
+
+                            # Count activities
+                            executions = load_json_data(
+                                agent_dir / "execution.json", []
+                            )
+                            total_executions += len(executions)
+
+                            tools = load_json_data(agent_dir / "tools.json", [])
+                            total_tool_requests += len(tools)
+
+                            interactions = load_json_data(
+                                agent_dir / "interactions.json", []
+                            )
+                            total_interactions += len(interactions)
+
+                summary.update(
+                    {
+                        "agent_count": agent_count,
+                        "agent_types": list(agent_types),
+                        "total_executions": total_executions,
+                        "total_tool_requests": total_tool_requests,
+                        "total_interactions": total_interactions,
+                    }
+                )
+
+                # Add session metrics if available
+                if "session_metrics" in session_data:
+                    metrics = session_data["session_metrics"]
+                    summary["metrics"] = {
+                        "executions_per_minute": metrics.get("executions_per_minute"),
+                        "tool_requests_per_minute": metrics.get(
+                            "tool_requests_per_minute"
+                        ),
+                        "unique_agent_types": metrics.get("unique_agent_types", []),
+                    }
+
+                sessions.append(summary)
+
+    # Sort sessions
+    valid_sort_keys = [
+        "timestamp",
+        "status",
+        "duration",
+        "agent_count",
+        "total_executions",
+    ]
+    if sort_by not in valid_sort_keys:
+        sort_by = "timestamp"
+
+    # Handle None values in sorting
+    def sort_key(session):
+        value = session.get(sort_by)
+        if value is None:
+            return "" if isinstance(session.get("session_id"), str) else 0
+        return value
+
+    sessions.sort(key=sort_key, reverse=reverse)
+
+    # Apply limit if specified
+    if limit and limit > 0:
+        sessions = sessions[:limit]
+
+    return sessions
+
+
+def _get_session_details_impl(
+    session_id: str, include_raw_data: bool = False
+) -> dict[str, Any]:
+    """
+    Internal implementation for CLI-friendly detailed session retrieval.
+    """
+    session_dir = get_session_directory(session_id)
+    session_file = session_dir / "session.json"
+
+    if not session_file.exists():
+        return {"error": f"Session {session_id} not found"}
+
+    # Load session data
+    session_data: dict[str, Any] = load_json_data(session_file, {})
+
+    # Build comprehensive session details
+    details = {
+        "session_id": session_data.get("session_id", session_id),
+        "timestamp": session_data.get("timestamp"),
+        "end_timestamp": session_data.get("end_timestamp"),
+        "status": session_data.get("status", "unknown"),
+        "duration": session_data.get("duration"),
+        "outcome": session_data.get("outcome"),
+        "outcome_metrics": session_data.get("outcome_metrics"),
+        "session_metrics": session_data.get("session_metrics"),
+        "last_updated": session_data.get("last_updated"),
+    }
+
+    # Add environment summary (not full environment for CLI readability)
+    if "environment" in session_data:
+        env = session_data["environment"]
+        details["environment_summary"] = {
+            "platform": env.get("system", {}).get("platform"),
+            "python_version": env.get("python", {}).get("version"),
+            "working_directory": env.get("process", {}).get("working_directory"),
+            "user": env.get("process", {}).get("user"),
+        }
+
+        # Include full environment data if requested
+        if include_raw_data:
+            details["environment_full"] = env
+
+    # Collect agent information
+    agents_dir = session_dir / "agents"
+    details["agents"] = {}
+    agent_summaries = []
+
+    if agents_dir.exists():
+        for agent_path in agents_dir.iterdir():
+            if agent_path.is_dir():
+                agent_id = agent_path.name
+
+                # Load agent metadata
+                metadata = load_json_data(agent_path / "metadata.json", {})
+                executions = load_json_data(agent_path / "execution.json", [])
+                tools = load_json_data(agent_path / "tools.json", [])
+                interactions = load_json_data(agent_path / "interactions.json", [])
+
+                # Create agent summary
+                agent_summary = {
+                    "agent_id": agent_id,
+                    "agent_type": metadata.get("agent_type", "unknown"),
+                    "purpose": metadata.get("purpose"),
+                    "status": metadata.get("status", "unknown"),
+                    "capabilities": metadata.get("capabilities", []),
+                    "registration_timestamp": metadata.get("timestamp"),
+                    "execution_count": len(executions),
+                    "tool_request_count": len(tools),
+                    "interaction_count": len(interactions),
+                    "last_activity": get_last_agent_activity(session_id, agent_id),
+                }
+
+                # Add interaction statistics
+                interaction_stats = get_agent_interaction_statistics(
+                    session_id, agent_id
+                )
+                if interaction_stats:
+                    agent_summary["interaction_stats"] = interaction_stats
+
+                agent_summaries.append(agent_summary)
+
+                # Include full agent data if requested
+                if include_raw_data:
+                    details["agents"][agent_id] = {
+                        "metadata": metadata,
+                        "executions": executions,
+                        "tool_requests": tools,
+                        "interactions": interactions,
+                    }
+
+    details["agent_summaries"] = agent_summaries
+    details["agent_count"] = len(agent_summaries)
+
+    return details
+
+
+def _list_session_agents_cli_impl(
+    session_id: str,
+    include_stats: bool = True,
+    sort_by: str = "registration_timestamp",
+    agent_type_filter: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Internal implementation for CLI-friendly agent listing within a session.
+    """
+    if not session_exists(session_id):
+        return []
+
+    session_dir = get_session_directory(session_id)
+    agents_dir = session_dir / "agents"
+
+    if not agents_dir.exists():
+        return []
+
+    agents = []
+    for agent_path in agents_dir.iterdir():
+        if agent_path.is_dir():
+            agent_id = agent_path.name
+
+            # Load agent metadata
+            metadata = load_json_data(agent_path / "metadata.json", {})
+            agent_type = metadata.get("agent_type", "unknown")
+
+            # Apply agent type filter if specified
+            if agent_type_filter and agent_type != agent_type_filter:
+                continue
+
+            # Build agent information
+            agent_info = {
+                "agent_id": agent_id,
+                "agent_type": agent_type,
+                "purpose": metadata.get("purpose"),
+                "status": metadata.get("status", "unknown"),
+                "capabilities": metadata.get("capabilities", []),
+                "registration_timestamp": metadata.get("timestamp"),
+                "registration_context": metadata.get("registration_context", {}),
+            }
+
+            if include_stats:
+                # Load activity counts
+                executions = load_json_data(agent_path / "execution.json", [])
+                tools = load_json_data(agent_path / "tools.json", [])
+                interactions = load_json_data(agent_path / "interactions.json", [])
+
+                agent_info.update(
+                    {
+                        "execution_count": len(executions),
+                        "tool_request_count": len(tools),
+                        "interaction_count": len(interactions),
+                        "last_activity": get_last_agent_activity(session_id, agent_id),
+                    }
+                )
+
+                # Include interaction statistics
+                interaction_stats = get_agent_interaction_statistics(
+                    session_id, agent_id
+                )
+                if interaction_stats:
+                    agent_info["interaction_stats"] = interaction_stats
+
+            agents.append(agent_info)
+
+    # Sort agents
+    valid_sort_keys = [
+        "registration_timestamp",
+        "agent_type",
+        "agent_id",
+        "execution_count",
+        "tool_request_count",
+        "interaction_count",
+    ]
+    if sort_by not in valid_sort_keys:
+        sort_by = "registration_timestamp"
+
+    # Handle None values in sorting
+    def sort_key(agent):
+        value = agent.get(sort_by)
+        if value is None:
+            return "" if sort_by in ["agent_type", "agent_id"] else 0
+        return value
+
+    agents.sort(key=sort_key)
+
+    return agents
+
+
+def _get_agent_details_impl(
+    session_id: str,
+    agent_id: str,
+    include_executions: bool = False,
+    include_tools: bool = False,
+    include_interactions: bool = False,
+    execution_limit: int | None = None,
+) -> dict[str, Any]:
+    """
+    Internal implementation for CLI-friendly detailed agent data retrieval.
+    """
+    if not session_exists(session_id):
+        return {"error": f"Session {session_id} not found"}
+
+    if not agent_exists(session_id, agent_id):
+        return {"error": f"Agent {agent_id} not found in session {session_id}"}
+
+    agent_dir = get_agent_directory(session_id, agent_id)
+
+    # Load all agent data
+    metadata = load_json_data(agent_dir / "metadata.json", {})
+    executions = load_json_data(agent_dir / "execution.json", [])
+    tools = load_json_data(agent_dir / "tools.json", [])
+    interactions = load_json_data(agent_dir / "interactions.json", [])
+
+    # Build comprehensive agent details
+    details = {
+        "agent_id": agent_id,
+        "session_id": session_id,
+        "agent_type": metadata.get("agent_type", "unknown"),
+        "purpose": metadata.get("purpose"),
+        "status": metadata.get("status", "unknown"),
+        "capabilities": metadata.get("capabilities", []),
+        "registration_timestamp": metadata.get("timestamp"),
+        "registration_context": metadata.get("registration_context", {}),
+        "metadata": metadata.get("metadata", {}),
+    }
+
+    # Add activity statistics
+    details.update(
+        {
+            "execution_count": len(executions),
+            "tool_request_count": len(tools),
+            "interaction_count": len(interactions),
+            "last_activity": get_last_agent_activity(session_id, agent_id),
+        }
+    )
+
+    # Include interaction statistics
+    interaction_stats = get_agent_interaction_statistics(session_id, agent_id)
+    if interaction_stats:
+        details["interaction_stats"] = interaction_stats
+
+    # Include detailed data if requested
+    if include_executions:
+        limited_executions = executions
+        if execution_limit and execution_limit > 0:
+            limited_executions = executions[-execution_limit:]  # Get most recent
+        details["executions"] = limited_executions
+
+    if include_tools:
+        tool_limit = execution_limit if execution_limit else None
+        limited_tools = tools
+        if tool_limit and tool_limit > 0:
+            limited_tools = tools[-tool_limit:]  # Get most recent
+        details["tool_requests"] = limited_tools
+
+    if include_interactions:
+        interaction_limit = execution_limit if execution_limit else None
+        limited_interactions = interactions
+        if interaction_limit and interaction_limit > 0:
+            limited_interactions = interactions[-interaction_limit:]  # Get most recent
+        details["interactions"] = limited_interactions
+
+    return details
+
+
+# =============================================================================
+# FASTMCP 2.0 RESOURCES - CLI DATA ACCESS ENDPOINTS
+# =============================================================================
+
+
+@app.resource("notes://sessions/list/{query}")
+def cli_list_sessions(
+    query: str = "all",
+    status: str | None = None,
+    sort_by: str = "timestamp",
+    reverse: bool = True,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """
+    CLI-friendly endpoint to list all tracked sessions with filtering and sorting.
+
+    Args:
+        query: Query type ("all", "active", "completed", or custom filter)
+
+    Query Parameters:
+    - status: Filter by session status ("active", "completed", etc.)
+    - sort_by: Sort field ("timestamp", "status", "duration", "agent_count", "total_executions")
+    - reverse: Sort in descending order (default: True)
+    - limit: Maximum number of sessions to return
+
+    Returns:
+        List of session summaries with comprehensive metadata
+    """
+    # Use query parameter to set status filter if not explicitly provided
+    if status is None and query != "all":
+        status = query
+    return _list_sessions_cli_impl(status, sort_by, reverse, limit)
+
+
+@app.resource("notes://sessions/get/{session_id}")
+def cli_get_session_details(
+    session_id: str,
+    include_raw_data: bool = False,
+) -> dict[str, Any]:
+    """
+    CLI-friendly endpoint to get detailed session information.
+
+    Args:
+        session_id: Session ID to retrieve
+        include_raw_data: Include complete raw data (environment, agent data)
+
+    Returns:
+        Detailed session information with agent summaries
+    """
+    return _get_session_details_impl(session_id, include_raw_data)
+
+
+@app.resource("notes://agents/list/{session_id}")
+def cli_list_session_agents(
+    session_id: str,
+    include_stats: bool = True,
+    sort_by: str = "registration_timestamp",
+    agent_type: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    CLI-friendly endpoint to list all agents within a session.
+
+    Args:
+        session_id: Session ID to query
+        include_stats: Include activity statistics for each agent
+        sort_by: Sort field ("registration_timestamp", "agent_type", "agent_id",
+                           "execution_count", "tool_request_count", "interaction_count")
+        agent_type: Filter by agent type
+
+    Returns:
+        List of agent information with statistics
+    """
+    return _list_session_agents_cli_impl(session_id, include_stats, sort_by, agent_type)
+
+
+@app.resource("notes://agents/get/{session_id}/{agent_id}")
+def cli_get_agent_details(
+    session_id: str,
+    agent_id: str,
+    include_executions: bool = False,
+    include_tools: bool = False,
+    include_interactions: bool = False,
+    limit: int | None = None,
+) -> dict[str, Any]:
+    """
+    CLI-friendly endpoint to get detailed agent information.
+
+    Args:
+        session_id: Session ID containing the agent
+        agent_id: Agent ID to retrieve
+        include_executions: Include execution history
+        include_tools: Include tool request history
+        include_interactions: Include interaction history
+        limit: Limit number of historical records returned (most recent)
+
+    Returns:
+        Detailed agent information with optional historical data
+    """
+    return _get_agent_details_impl(
+        session_id,
+        agent_id,
+        include_executions,
+        include_tools,
+        include_interactions,
+        limit,
+    )
+
+
+@app.resource("notes://search/sessions/{search_term}")
+def cli_search_sessions(
+    search_term: str = "all",
+    query: str | None = None,
+    agent_type: str | None = None,
+    min_duration: float | None = None,
+    max_duration: float | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> list[dict[str, Any]]:
+    """
+    CLI-friendly endpoint to search sessions with advanced filtering.
+
+    Args:
+        search_term: Primary search term (use "all" for no text filtering)
+
+    Query Parameters:
+    - query: Additional search term for session outcomes or environment data
+    - agent_type: Filter sessions that contain agents of this type
+    - min_duration: Minimum session duration in seconds
+    - max_duration: Maximum session duration in seconds
+    - date_from: Start date filter (ISO format)
+    - date_to: End date filter (ISO format)
+
+    Returns:
+        List of matching sessions with relevance scoring
+    """
+    sessions = _list_sessions_cli_impl()
+    filtered_sessions = []
+
+    # Use search_term as primary query if no explicit query provided
+    if query is None and search_term != "all":
+        query = search_term
+
+    for session in sessions:
+        # Apply duration filters
+        duration = session.get("duration")
+        if min_duration is not None and (duration is None or duration < min_duration):
+            continue
+        if max_duration is not None and (duration is None or duration > max_duration):
+            continue
+
+        # Apply date filters
+        timestamp = session.get("timestamp")
+        if date_from and timestamp and timestamp < date_from:
+            continue
+        if date_to and timestamp and timestamp > date_to:
+            continue
+
+        # Apply agent type filter
+        if agent_type and agent_type not in session.get("agent_types", []):
+            continue
+
+        # Apply text search (basic implementation)
+        if query:
+            search_text = f"{session.get('session_id', '')} {session.get('status', '')}"
+            # Load full session data for deeper search
+            full_session = _get_session_details_impl(session["session_id"])
+            if "outcome" in full_session and full_session["outcome"]:
+                search_text += f" {full_session['outcome']}"
+
+            if query.lower() not in search_text.lower():
+                continue
+
+        filtered_sessions.append(session)
+
+    return filtered_sessions
+
+
+# =============================================================================
+# LEGACY FASTMCP 2.0 RESOURCES - DATA ACCESS (Maintained for compatibility)
 # =============================================================================
 
 
@@ -1195,10 +2101,17 @@ if TESTING_MODE:
     get_agent_metadata = _get_agent_metadata_impl  # type: ignore[assignment]
     log_agent_execution = _log_agent_execution_impl  # type: ignore[assignment]
     log_tool_request = _log_tool_request_impl  # type: ignore[assignment]
+    log_agent_interaction = _log_agent_interaction_impl  # type: ignore[assignment]
 
-    # Resource functions (override FastMCP-wrapped functions for direct testing)
+    # Legacy resource functions (override FastMCP-wrapped functions for direct testing)
     get_session = _get_session_impl  # type: ignore[assignment]
     list_sessions = _list_sessions_impl  # type: ignore[assignment]
+
+    # CLI resource functions (override FastMCP-wrapped functions for direct testing)
+    cli_list_sessions = _list_sessions_cli_impl  # type: ignore[assignment]
+    cli_get_session_details = _get_session_details_impl  # type: ignore[assignment]
+    cli_list_session_agents = _list_session_agents_cli_impl  # type: ignore[assignment]
+    cli_get_agent_details = _get_agent_details_impl  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -1212,10 +2125,16 @@ def main() -> None:
     logger.info(
         "Available tools: start_session, end_session, update_session_metadata, "
         "get_session_status, register_agent, get_agent_metadata, "
-        "log_agent_execution, log_tool_request"
+        "log_agent_execution, log_tool_request, log_agent_interaction"
     )
     logger.info(
-        "Available resources: session://{id}, sessions://list, "
+        "Available CLI data access resources: "
+        "notes://sessions/list/{query}, notes://sessions/get/{id}, "
+        "notes://agents/list/{session_id}, notes://agents/get/{session_id}/{agent_id}, "
+        "notes://search/sessions/{search_term}"
+    )
+    logger.info(
+        "Legacy compatibility resources: session://{id}, sessions://list, "
         "agent://{session_id}/{agent_id}, agents://{session_id}"
     )
 
