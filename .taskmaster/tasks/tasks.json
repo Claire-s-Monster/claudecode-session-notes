@@ -842,13 +842,13 @@
           16,
           18
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-07-30T19:02:41.449Z",
-      "updated": "2025-08-01T15:19:00.144Z",
+      "updated": "2025-08-01T18:43:25.108Z",
       "description": "Tasks for master context"
     }
   }

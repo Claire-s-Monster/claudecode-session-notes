@@ -506,6 +506,11 @@ def _start_session_impl(
     session_dir = get_session_directory(session_id)
     ensure_directory(session_dir)
 
+    # Check if session already exists
+    session_file = session_dir / "session.json"
+    if session_file.exists():
+        return f"Session {session_id} already exists and is active"
+
     # Merge environment metadata (auto-collected + provided)
     environment_data = merge_environment_metadata(
         environment_info, auto_collect_environment
@@ -521,7 +526,6 @@ def _start_session_impl(
     )
 
     # Save session metadata
-    session_file = session_dir / "session.json"
     save_json_data(session_file, session_info.model_dump())
 
     logger.info(f"Started session tracking: {session_id} with comprehensive metadata")
@@ -2093,6 +2097,32 @@ def get_missing_tools_global() -> dict[str, Any]:
     return _aggregate_missing_tools_across_sessions_impl()
 
 
+@app.resource("notes://analytics/report/{report_type}")
+def get_analytics_report(
+    report_type: str = "summary",
+    session_filter: str | None = None,
+    limit_sessions: int | None = None,
+    include_session_details: bool = False,
+) -> dict[str, Any]:
+    """
+    Generate comprehensive analytics report across sessions.
+
+    Args:
+        report_type: Type of report to generate ("summary", "detailed", "tools-only")
+
+    Query Parameters:
+    - session_filter: Filter by session status ("active", "completed", etc.)
+    - limit_sessions: Maximum number of sessions to analyze (most recent first)
+    - include_session_details: Include detailed session information in report
+
+    Returns:
+        Comprehensive analytics report with tool usage and missing tools analysis
+    """
+    return _generate_analytics_report_impl(
+        session_filter, limit_sessions, include_session_details
+    )
+
+
 # =============================================================================
 # LEGACY FASTMCP 2.0 RESOURCES - DATA ACCESS (Maintained for compatibility)
 # =============================================================================
@@ -2246,14 +2276,14 @@ def _analyze_missing_tools_impl(session_id: str) -> dict[str, Any]:
 
                 # Update timestamps
                 if timestamp:
-                    if (
-                        not tool_data["first_requested"]
-                        or timestamp < tool_data["first_requested"]
+                    if not tool_data["first_requested"] or (
+                        tool_data["first_requested"] is not None
+                        and timestamp < tool_data["first_requested"]
                     ):
                         tool_data["first_requested"] = timestamp
-                    if (
-                        not tool_data["last_requested"]
-                        or timestamp > tool_data["last_requested"]
+                    if not tool_data["last_requested"] or (
+                        tool_data["last_requested"] is not None
+                        and timestamp > tool_data["last_requested"]
                     ):
                         tool_data["last_requested"] = timestamp
 
@@ -2450,8 +2480,17 @@ if TESTING_MODE:
     log_agent_interaction = _log_agent_interaction_impl  # type: ignore[assignment]
 
     # Legacy resource functions (override FastMCP-wrapped functions for direct testing)
-    get_session = _get_session_impl  # type: ignore[assignment]
-    list_sessions = _list_sessions_impl  # type: ignore[assignment]
+    def _get_session_json_wrapper(session_id: str) -> str:
+        result = _get_session_impl(session_id)
+        return json.dumps(result)
+
+    get_session = _get_session_json_wrapper  # type: ignore[assignment]
+
+    def _list_sessions_json_wrapper() -> str:
+        result = _list_sessions_impl()
+        return json.dumps(result)
+
+    list_sessions = _list_sessions_json_wrapper  # type: ignore[assignment]
 
     # CLI resource functions (override FastMCP-wrapped functions for direct testing)
     cli_list_sessions = _list_sessions_cli_impl  # type: ignore[assignment]
@@ -2492,7 +2531,7 @@ def main() -> None:
         "notes://sessions/list/{query}, notes://sessions/get/{id}, "
         "notes://agents/list/{session_id}, notes://agents/get/{session_id}/{agent_id}, "
         "notes://search/sessions/{search_term}, "
-        "notes://tools/missing/{session_id}, notes://tools/missing"
+        "notes://tools/missing/{session_id}, notes://tools/missing, notes://analytics/report"
     )
     logger.info(
         "Legacy compatibility resources: session://{id}, sessions://list, "
@@ -2505,3 +2544,316 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# =============================================================================
+# ANALYTICS REPORT DATA MODELS
+# =============================================================================
+
+
+class ToolUsageSummary(BaseModel):
+    """Summary of tool usage across sessions"""
+
+    tool_name: str = Field(description="Name of the tool")
+    usage_count: int = Field(description="Number of times the tool was used")
+    success_count: int = Field(description="Number of successful uses")
+    success_rate: float = Field(description="Success rate as a percentage")
+    sessions_used: list[str] = Field(
+        default_factory=list, description="List of session IDs where this tool was used"
+    )
+    first_used: str | None = Field(None, description="Timestamp of first usage")
+    last_used: str | None = Field(None, description="Timestamp of last usage")
+
+
+class AnalyticsReport(BaseModel):
+    """Comprehensive analytics report for sessions"""
+
+    report_timestamp: str = Field(description="When this report was generated")
+    total_sessions: int = Field(description="Total number of sessions analyzed")
+    date_range: dict[str, str | None] = Field(
+        default_factory=dict,
+        description="Date range of analyzed sessions (start/end timestamps)",
+    )
+
+    # Tool usage analysis
+    total_tool_requests: int = Field(description="Total number of tool requests")
+    successful_tool_requests: int = Field(
+        description="Number of successful tool requests"
+    )
+    overall_tool_success_rate: float = Field(description="Overall tool success rate")
+    frequently_used_tools: list[ToolUsageSummary] = Field(
+        default_factory=list, description="Most frequently used tools"
+    )
+
+    # Missing tools analysis
+    total_missing_tools: int = Field(description="Number of unique missing tools")
+    total_failed_requests: int = Field(description="Total failed tool requests")
+    missing_tools: list[dict[str, Any]] = Field(
+        default_factory=list, description="Details of missing tools"
+    )
+
+    # Session analysis
+    session_summaries: list[dict[str, Any]] = Field(
+        default_factory=list, description="Summary information for each session"
+    )
+
+
+# =============================================================================
+# ANALYTICS REPORT IMPLEMENTATION
+# =============================================================================
+
+
+def _generate_analytics_report_impl(
+    session_filter: str | None = None,
+    limit_sessions: int | None = None,
+    include_session_details: bool = False,
+) -> dict[str, Any]:
+    """
+    Internal implementation for generating comprehensive analytics reports.
+
+    Args:
+        session_filter: Optional filter for session status ("active", "completed", etc.)
+        limit_sessions: Maximum number of sessions to analyze (most recent first)
+        include_session_details: Whether to include detailed session information
+
+    Returns:
+        Dictionary containing comprehensive analytics report or error information
+    """
+    try:
+        # Get all sessions
+        sessions = _list_sessions_impl()
+
+        if not sessions:
+            return {
+                "report_timestamp": datetime.now(UTC).isoformat(),
+                "total_sessions": 0,
+                "date_range": {"start": None, "end": None},
+                "total_tool_requests": 0,
+                "successful_tool_requests": 0,
+                "overall_tool_success_rate": 0.0,
+                "frequently_used_tools": [],
+                "total_missing_tools": 0,
+                "total_failed_requests": 0,
+                "missing_tools": [],
+                "session_summaries": [],
+            }
+
+        # Apply session filter if specified
+        if session_filter:
+            sessions = [s for s in sessions if s.get("status") == session_filter]
+
+        # Sort by timestamp (most recent first) and apply limit
+        sessions.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+        if limit_sessions and limit_sessions > 0:
+            sessions = sessions[:limit_sessions]
+
+        # Initialize analytics data
+        tool_usage: dict[str, dict[str, Any]] = {}
+        missing_tools_global: dict[str, dict[str, Any]] = {}
+        total_tool_requests = 0
+        successful_tool_requests = 0
+        total_failed_requests = 0
+        session_summaries = []
+
+        # Determine date range
+        timestamps = [
+            str(s.get("timestamp")) for s in sessions if s.get("timestamp") is not None
+        ]
+        date_range = {
+            "start": min(timestamps) if timestamps else None,
+            "end": max(timestamps) if timestamps else None,
+        }
+
+        # Process each session
+        for session in sessions:
+            session_id = session.get("session_id")
+            if not session_id:
+                continue
+
+            # Get full session details
+            session_details = _get_session_impl(session_id)
+            if "error" in session_details:
+                continue
+
+            # Process session summary
+            if include_session_details:
+                session_summaries.append(
+                    {
+                        "session_id": session_id,
+                        "timestamp": session.get("timestamp"),
+                        "status": session.get("status"),
+                        "duration": session.get("duration"),
+                        "agent_count": session.get("agent_count", 0),
+                    }
+                )
+
+            # Process agents in this session
+            agents = session_details.get("agents", {})
+            for agent_id, agent_data in agents.items():
+                tool_requests = agent_data.get("tool_requests", [])
+
+                # Process tool usage
+                for request in tool_requests:
+                    if not isinstance(request, dict):
+                        continue
+
+                    tool_name = request.get("tool_name", "unknown")
+                    available = request.get("available", True)
+                    success = request.get("success", available)
+                    timestamp = request.get("timestamp")
+
+                    total_tool_requests += 1
+                    if success:
+                        successful_tool_requests += 1
+
+                    # Track tool usage
+                    if available:  # Only track available tools in usage stats
+                        if tool_name not in tool_usage:
+                            tool_usage[tool_name] = {
+                                "tool_name": tool_name,
+                                "usage_count": 0,
+                                "success_count": 0,
+                                "sessions_used": set(),
+                                "first_used": None,
+                                "last_used": None,
+                            }
+
+                        tool_data = tool_usage[tool_name]
+                        tool_data["usage_count"] += 1
+                        if success:
+                            tool_data["success_count"] += 1
+                        tool_data["sessions_used"].add(session_id)
+
+                        # Update timestamps
+                        if timestamp:
+                            if not tool_data["first_used"] or (
+                                tool_data["first_used"] is not None
+                                and timestamp < tool_data["first_used"]
+                            ):
+                                tool_data["first_used"] = timestamp
+                            if not tool_data["last_used"] or (
+                                tool_data["last_used"] is not None
+                                and timestamp > tool_data["last_used"]
+                            ):
+                                tool_data["last_used"] = timestamp
+
+                    # Track missing tools
+                    if not available:
+                        total_failed_requests += 1
+
+                        if tool_name not in missing_tools_global:
+                            missing_tools_global[tool_name] = {
+                                "tool_name": tool_name,
+                                "request_count": 0,
+                                "first_requested": None,
+                                "last_requested": None,
+                                "requesting_sessions": set(),
+                                "requesting_agents": set(),
+                            }
+
+                        missing_tool_data = missing_tools_global[tool_name]
+                        missing_tool_data["request_count"] += 1
+                        missing_tool_data["requesting_sessions"].add(session_id)
+                        missing_tool_data["requesting_agents"].add(
+                            f"{session_id}:{agent_id}"
+                        )
+
+                        # Update timestamps
+                        if timestamp:
+                            if not missing_tool_data["first_requested"] or (
+                                missing_tool_data["first_requested"] is not None
+                                and timestamp < missing_tool_data["first_requested"]
+                            ):
+                                missing_tool_data["first_requested"] = timestamp
+                            if not missing_tool_data["last_requested"] or (
+                                missing_tool_data["last_requested"] is not None
+                                and timestamp > missing_tool_data["last_requested"]
+                            ):
+                                missing_tool_data["last_requested"] = timestamp
+
+        # Calculate success rates and prepare tool usage summaries
+        frequently_used_tools = []
+        for tool_data in tool_usage.values():
+            success_rate = (
+                tool_data["success_count"] / tool_data["usage_count"] * 100
+                if tool_data["usage_count"] > 0
+                else 0.0
+            )
+
+            frequently_used_tools.append(
+                {
+                    "tool_name": tool_data["tool_name"],
+                    "usage_count": tool_data["usage_count"],
+                    "success_count": tool_data["success_count"],
+                    "success_rate": round(success_rate, 2),
+                    "sessions_used": list(tool_data["sessions_used"]),
+                    "first_used": tool_data["first_used"],
+                    "last_used": tool_data["last_used"],
+                }
+            )
+
+        # Sort tools by usage count (descending)
+        frequently_used_tools.sort(key=lambda t: t["usage_count"], reverse=True)
+
+        # Prepare missing tools list
+        missing_tools_list = []
+        for missing_tool_data in missing_tools_global.values():
+            missing_tools_list.append(
+                {
+                    "tool_name": missing_tool_data["tool_name"],
+                    "request_count": missing_tool_data["request_count"],
+                    "first_requested": missing_tool_data["first_requested"],
+                    "last_requested": missing_tool_data["last_requested"],
+                    "requesting_sessions": list(
+                        missing_tool_data["requesting_sessions"]
+                    ),
+                    "requesting_agents": list(missing_tool_data["requesting_agents"]),
+                }
+            )
+
+        # Sort missing tools by request count (descending)
+        missing_tools_list.sort(key=lambda t: t["request_count"], reverse=True)
+
+        # Calculate overall success rate
+        overall_success_rate = (
+            (successful_tool_requests / total_tool_requests * 100)
+            if total_tool_requests > 0
+            else 0.0
+        )
+
+        # Generate final report
+        return {
+            "report_timestamp": datetime.now(UTC).isoformat(),
+            "total_sessions": len(sessions),
+            "date_range": date_range,
+            "total_tool_requests": total_tool_requests,
+            "successful_tool_requests": successful_tool_requests,
+            "overall_tool_success_rate": round(overall_success_rate, 2),
+            "frequently_used_tools": frequently_used_tools,
+            "total_missing_tools": len(missing_tools_list),
+            "total_failed_requests": total_failed_requests,
+            "missing_tools": missing_tools_list,
+            "session_summaries": session_summaries,
+        }
+
+    except Exception as e:
+        logger.error(f"Error generating analytics report: {e}")
+        return {"error": f"Failed to generate analytics report: {str(e)}"}
+
+
+# =============================================================================
+# ANALYTICS TESTING MODE OVERRIDES (Must be after function definition)
+# =============================================================================
+
+# For testing: Override analytics FastMCP-wrapped function with direct callable implementation
+if TESTING_MODE:
+    get_analytics_report = _generate_analytics_report_impl  # type: ignore[assignment]
+
+
+# =============================================================================
+# ANALYTICS TESTING MODE OVERRIDES (Must be after function definition)
+# =============================================================================
+
+# For testing: Override analytics FastMCP-wrapped function with direct callable implementation
+if TESTING_MODE:
+    get_analytics_report = _generate_analytics_report_impl  # type: ignore[assignment]
