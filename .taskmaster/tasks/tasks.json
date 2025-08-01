@@ -759,8 +759,63 @@
         "dependencies": [
           15
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Update Tool Invocation Event Schema and Logging",
+            "description": "Modify the tool invocation event structure and the corresponding MCP endpoint from Task 15 to include a new boolean `available` flag. Update the logging mechanism to store this flag in the session's `tools.json` file for each tool usage event.",
+            "dependencies": [],
+            "details": "The existing tool usage tracking endpoint must be enhanced to accept an `available` flag in its payload. The logic will then write this flag alongside the tool name and success status into the session's `tools.json` log file. This provides the raw data needed for detection.\n<info added on 2025-08-01T02:47:11.001Z>\n**Update:** A review of the codebase confirms that this functionality was previously implemented. The `ToolRequest` model already includes the `available` boolean field, and the `log_tool_request` function already accepts and stores this parameter. No further development is needed for this subtask.\n</info added on 2025-08-01T02:47:11.001Z>",
+            "status": "done",
+            "testStrategy": "Send simulated tool usage events to the updated endpoint, some with `available: true` and others with `available: false`. Inspect the resulting `tools.json` file to confirm the new flag is accurately recorded for each event."
+          },
+          {
+            "id": 2,
+            "title": "Implement Missing Tool Aggregation Logic",
+            "description": "Develop a function or service that processes the `tools.json` log for a given session to identify and aggregate all tool invocation events where the `available` flag is `false`.",
+            "dependencies": [
+              "18.1"
+            ],
+            "details": "This logic will read a session's `tools.json` file, filter the events to find entries with `available: false`, and then aggregate this data. The output should be a structured collection (e.g., a dictionary or list of objects) containing the names of the missing tools and the number of times each was attempted.\n<info added on 2025-08-01T02:53:16.777Z>\nThe aggregation logic has been implemented in the `_analyze_missing_tools_impl()` function. This function processes `tools.json` files, filters for unavailable tool requests (`available: false`), and aggregates the findings into new `MissingToolSummary` and `SessionMissingToolsReport` data models. The implementation also includes functions for saving/loading reports and aggregating data across all sessions. This functionality is exposed through new FastMCP tools (`analyze_missing_tools`, `save_missing_tools_report`) and resources (`notes://tools/missing/{session_id}`, `notes://tools/missing`).\n</info added on 2025-08-01T02:53:16.777Z>",
+            "status": "done",
+            "testStrategy": "Create a sample `tools.json` file containing a mix of available and unavailable tool calls. Execute the aggregation function against this file and assert that the output data structure correctly lists only the unavailable tools and their corresponding attempt counts."
+          },
+          {
+            "id": 3,
+            "title": "Establish Dedicated Storage for Missing Tools",
+            "description": "Implement the mechanism to persist the aggregated list of missing tools. This data should be saved to a new dedicated file, `missing_tools.json`, within each session's directory.",
+            "dependencies": [
+              "18.2"
+            ],
+            "details": "Create a process, likely triggered at the end of a session, that takes the aggregated data from the previous subtask and writes it to a `missing_tools.json` file. This file will serve as the persistent, canonical source for missing tool data for that session, decoupling it from the raw event log.",
+            "status": "done",
+            "testStrategy": "After running a simulated session that includes unavailable tool requests, verify that a `missing_tools.json` file is created in the correct session directory and that its contents accurately reflect the aggregated data."
+          },
+          {
+            "id": 4,
+            "title": "Develop `notes://tools/missing` Endpoint",
+            "description": "Create the new `notes://tools/missing` MCP endpoint that retrieves and returns the cataloged missing tool data from the `missing_tools.json` storage.",
+            "dependencies": [
+              "18.3"
+            ],
+            "details": "Implement the server-side routing and logic for the `notes://tools/missing` endpoint. The endpoint should be able to locate and read `missing_tools.json` files. It could accept an optional `sessionId` to report on a specific session or aggregate results across all sessions if no ID is provided.",
+            "status": "done",
+            "testStrategy": "Manually create `missing_tools.json` files in several test session directories. Call the new endpoint with and without a `sessionId` parameter and verify that the JSON response is correctly formatted and contains the expected data from the corresponding file(s)."
+          },
+          {
+            "id": 5,
+            "title": "End-to-End Integration and Verification",
+            "description": "Integrate all components and perform end-to-end testing to ensure the entire missing tool detection pipeline functions correctly, from event capture to API reporting.",
+            "dependencies": [
+              "18.1",
+              "18.4"
+            ],
+            "details": "This subtask ensures the complete workflow is operational. A test client will simulate an agent session, making calls for both available and unavailable tools. This will trigger the updated logging, aggregation, storage, and finally, the new endpoint will be called to verify the final report.\n<info added on 2025-08-01T03:08:26.709Z>\nEnd-to-end integration and verification is complete. A comprehensive test suite (`test_missing_tool_detection.py`) and a simple integration test (`test_missing_tools_simple.py`) were created to validate the full pipeline. Testing confirmed that the entire workflow is operational: tool requests are logged with an `available` flag, missing tools are aggregated by session, reports are saved to `missing_tools.json`, and data is accessible via FastMCP endpoints. Global aggregation across multiple sessions was also successfully verified. Additionally, testing mode overrides were fixed to properly expose internal functions.\n</info added on 2025-08-01T03:08:26.709Z>",
+            "status": "done",
+            "testStrategy": "Simulate a full agent session. During the session, trigger tool requests for both existing and non-existing tools. After the session concludes, call the `notes://tools/missing` endpoint and verify that its output correctly and exclusively lists the tools that were requested but were unavailable."
+          }
+        ]
       },
       {
         "id": 19,
@@ -793,7 +848,7 @@
     ],
     "metadata": {
       "created": "2025-07-30T19:02:41.449Z",
-      "updated": "2025-07-31T21:39:11.753Z",
+      "updated": "2025-08-01T03:09:40.233Z",
       "description": "Tasks for master context"
     }
   }
