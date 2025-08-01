@@ -871,8 +871,8 @@ class TestErrorHandlingAndEdgeCases:
 
                 # Register agent and add various data
                 from session_notes.server import (
-                    _register_agent_impl,
                     _log_agent_interaction_impl,
+                    _register_agent_impl,
                 )
 
                 _register_agent_impl(session_id, agent_id, "test-agent")
@@ -1130,8 +1130,8 @@ class TestErrorHandlingAndEdgeCases:
 
                 # Test agent registration and metadata retrieval
                 from session_notes.server import (
-                    _register_agent_impl,
                     _get_agent_metadata_impl,
+                    _register_agent_impl,
                 )
 
                 _register_agent_impl(session_id, "test-agent", "test-type")
@@ -1177,9 +1177,9 @@ class TestErrorHandlingAndEdgeCases:
 
                 # Test various CLI implementations to increase coverage
                 from session_notes.server import (
+                    _get_agent_details_impl,
                     _get_session_details_impl,
                     _list_session_agents_cli_impl,
-                    _get_agent_details_impl,
                 )
 
                 # Test session details with environment data

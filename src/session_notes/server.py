@@ -26,6 +26,9 @@ from pydantic import BaseModel, Field
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("session_notes.server")
 
+# Constants
+CLAUDE_SESSION_NOTES_DIR = ".claude/session-notes"
+
 # Initialize FastMCP application
 app: FastMCP = FastMCP("session-notes", version="0.1.0")
 
@@ -329,7 +332,7 @@ def calculate_session_metrics(
 
 def get_session_directory(session_id: str) -> Path:
     """Get the session directory path"""
-    return Path(".claude/session-notes") / session_id
+    return Path(CLAUDE_SESSION_NOTES_DIR) / session_id
 
 
 def get_agent_directory(session_id: str, agent_id: str) -> Path:
@@ -1127,7 +1130,7 @@ def _list_sessions_impl() -> list[dict[str, Any]]:
     Internal implementation for listing sessions.
     This function contains the actual business logic and is directly callable.
     """
-    sessions_dir = Path(".claude/session-notes")
+    sessions_dir = Path(CLAUDE_SESSION_NOTES_DIR)
 
     if not sessions_dir.exists():
         return []
@@ -1465,6 +1468,38 @@ def log_agent_interaction(
     )
 
 
+@app.tool()
+def analyze_missing_tools(session_id: str) -> dict[str, Any]:
+    """
+    Analyze and generate a missing tools report for a specific session.
+
+    Args:
+        session_id: Session ID to analyze for missing tools
+
+    Returns:
+        Missing tools analysis report
+    """
+    return _analyze_missing_tools_impl(session_id)
+
+
+@app.tool()
+def save_missing_tools_report(session_id: str) -> str:
+    """
+    Generate and save a missing tools report for a session.
+
+    Args:
+        session_id: Session ID to generate report for
+
+    Returns:
+        Confirmation message
+    """
+    report_data = _analyze_missing_tools_impl(session_id)
+    if "error" in report_data:
+        return f"Error generating report: {report_data['error']}"
+
+    return _save_missing_tools_report_impl(session_id, report_data)
+
+
 # =============================================================================
 # INTERNAL CLI DATA QUERY IMPLEMENTATIONS
 # =============================================================================
@@ -1479,7 +1514,7 @@ def _list_sessions_cli_impl(
     """
     Internal implementation for CLI-friendly session listing with filtering and sorting.
     """
-    sessions_dir = Path(".claude/session-notes")
+    sessions_dir = Path(CLAUDE_SESSION_NOTES_DIR)
 
     if not sessions_dir.exists():
         return []
@@ -2026,6 +2061,31 @@ def cli_search_sessions(
     return filtered_sessions
 
 
+@app.resource("notes://tools/missing/{session_id}")
+def get_missing_tools_for_session(session_id: str) -> dict[str, Any]:
+    """
+    Get missing tools report for a specific session.
+
+    Args:
+        session_id: Session ID to analyze for missing tools
+
+    Returns:
+        Missing tools report for the specified session
+    """
+    return _load_missing_tools_report_impl(session_id)
+
+
+@app.resource("notes://tools/missing")
+def get_missing_tools_global() -> dict[str, Any]:
+    """
+    Get aggregated missing tools report across all sessions.
+
+    Returns:
+        Global missing tools report aggregated across all sessions
+    """
+    return _aggregate_missing_tools_across_sessions_impl()
+
+
 # =============================================================================
 # LEGACY FASTMCP 2.0 RESOURCES - DATA ACCESS (Maintained for compatibility)
 # =============================================================================
@@ -2086,6 +2146,285 @@ def list_session_agents_resource(session_id: str) -> list[str]:
 
 
 # =============================================================================
+# MISSING TOOL DETECTION AND AGGREGATION
+# =============================================================================
+
+
+class MissingToolSummary(BaseModel):
+    """Summary of missing tool requests for a session"""
+
+    tool_name: str = Field(description="Name of the missing tool")
+    request_count: int = Field(description="Number of times the tool was requested")
+    first_requested: str = Field(description="Timestamp of first request")
+    last_requested: str = Field(description="Timestamp of last request")
+    requesting_agents: list[str] = Field(
+        default_factory=list, description="List of agent IDs that requested this tool"
+    )
+
+
+class SessionMissingToolsReport(BaseModel):
+    """Complete missing tools report for a session"""
+
+    session_id: str = Field(description="Session identifier")
+    analysis_timestamp: str = Field(description="When this analysis was performed")
+    total_missing_tools: int = Field(description="Total number of unique missing tools")
+    total_failed_requests: int = Field(
+        description="Total number of failed tool requests"
+    )
+    missing_tools: list[MissingToolSummary] = Field(
+        default_factory=list, description="List of missing tool summaries"
+    )
+
+
+def _analyze_missing_tools_impl(session_id: str) -> dict[str, Any]:
+    """
+    Internal implementation for analyzing missing tools from a session's tool request data.
+
+    Args:
+        session_id: Session identifier to analyze
+
+    Returns:
+        Dictionary containing missing tools analysis or error information
+    """
+    if not session_exists(session_id):
+        return {"error": f"Session {session_id} not found"}
+
+    session_dir = get_session_directory(session_id)
+    agents_dir = session_dir / "agents"
+
+    if not agents_dir.exists():
+        return {
+            "session_id": session_id,
+            "analysis_timestamp": datetime.now(UTC).isoformat(),
+            "total_missing_tools": 0,
+            "total_failed_requests": 0,
+            "missing_tools": [],
+        }
+
+    # Aggregate missing tools across all agents in the session
+    missing_tools_data: dict[str, dict[str, Any]] = {}
+    total_failed_requests = 0
+
+    for agent_dir in agents_dir.iterdir():
+        if not agent_dir.is_dir():
+            continue
+
+        agent_id = agent_dir.name
+        tools_file = agent_dir / "tools.json"
+        tool_requests = load_json_data(tools_file, [])
+
+        for request in tool_requests:
+            if not isinstance(request, dict):
+                continue
+
+            # Check if tool was not available
+            if not request.get("available", True):
+                tool_name = request.get("tool_name", "unknown")
+                timestamp = request.get("timestamp")
+
+                total_failed_requests += 1
+
+                # Initialize or update missing tool data
+                if tool_name not in missing_tools_data:
+                    missing_tools_data[tool_name] = {
+                        "tool_name": tool_name,
+                        "request_count": 0,
+                        "first_requested": timestamp,
+                        "last_requested": timestamp,
+                        "requesting_agents": [],
+                    }
+
+                tool_data = missing_tools_data[tool_name]
+                tool_data["request_count"] += 1
+
+                # Update timestamps
+                if timestamp:
+                    if (
+                        not tool_data["first_requested"]
+                        or timestamp < tool_data["first_requested"]
+                    ):
+                        tool_data["first_requested"] = timestamp
+                    if (
+                        not tool_data["last_requested"]
+                        or timestamp > tool_data["last_requested"]
+                    ):
+                        tool_data["last_requested"] = timestamp
+
+                # Track requesting agent
+                if agent_id not in tool_data["requesting_agents"]:
+                    tool_data["requesting_agents"].append(agent_id)
+
+    # Convert to sorted list (by request count, descending)
+    missing_tools_list = sorted(
+        missing_tools_data.values(), key=lambda x: x["request_count"], reverse=True
+    )
+
+    # Create final report
+    report = {
+        "session_id": session_id,
+        "analysis_timestamp": datetime.now(UTC).isoformat(),
+        "total_missing_tools": len(missing_tools_list),
+        "total_failed_requests": total_failed_requests,
+        "missing_tools": missing_tools_list,
+    }
+
+    return report
+
+
+def _save_missing_tools_report_impl(
+    session_id: str, report_data: dict[str, Any]
+) -> str:
+    """
+    Internal implementation for saving missing tools report to dedicated storage.
+
+    Args:
+        session_id: Session identifier
+        report_data: Missing tools report data to save
+
+    Returns:
+        Success/error message
+    """
+    if not session_exists(session_id):
+        return f"Session {session_id} not found"
+
+    session_dir = get_session_directory(session_id)
+    missing_tools_file = session_dir / "missing_tools.json"
+
+    try:
+        save_json_data(missing_tools_file, report_data)
+        logger.info(f"Saved missing tools report for session {session_id}")
+        return f"Missing tools report saved successfully for session {session_id}"
+    except Exception as e:
+        logger.error(f"Error saving missing tools report for session {session_id}: {e}")
+        return f"Error saving missing tools report: {e}"
+
+
+def _load_missing_tools_report_impl(session_id: str) -> dict[str, Any]:
+    """
+    Internal implementation for loading missing tools report from storage.
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Missing tools report data or error information
+    """
+    if not session_exists(session_id):
+        return {"error": f"Session {session_id} not found"}
+
+    session_dir = get_session_directory(session_id)
+    missing_tools_file = session_dir / "missing_tools.json"
+
+    report_data = load_json_data(missing_tools_file)
+    if report_data is None:
+        # Generate report if it doesn't exist
+        report_data = _analyze_missing_tools_impl(session_id)
+        if "error" not in report_data:
+            _save_missing_tools_report_impl(session_id, report_data)
+
+    return report_data  # type: ignore[no-any-return]
+
+
+def _aggregate_missing_tools_across_sessions_impl() -> dict[str, Any]:
+    """
+    Internal implementation for aggregating missing tools across all sessions.
+
+    Returns:
+        Aggregated missing tools report across all sessions
+    """
+    sessions_dir = Path(CLAUDE_SESSION_NOTES_DIR)
+
+    if not sessions_dir.exists():
+        return {
+            "analysis_timestamp": datetime.now(UTC).isoformat(),
+            "total_sessions_analyzed": 0,
+            "total_missing_tools": 0,
+            "total_failed_requests": 0,
+            "missing_tools": [],
+        }
+
+    # Aggregate across all sessions
+    global_missing_tools: dict[str, dict[str, Any]] = {}
+    total_failed_requests = 0
+    sessions_analyzed = 0
+
+    for session_path in sessions_dir.iterdir():
+        if not session_path.is_dir():
+            continue
+
+        session_id = session_path.name
+        session_file = session_path / "session.json"
+
+        # Only analyze sessions that have a session.json file
+        if not session_file.exists():
+            continue
+
+        sessions_analyzed += 1
+        session_report = _analyze_missing_tools_impl(session_id)
+
+        if "error" in session_report:
+            continue
+
+        total_failed_requests += session_report.get("total_failed_requests", 0)
+
+        # Aggregate missing tools
+        for tool_data in session_report.get("missing_tools", []):
+            tool_name = tool_data.get("tool_name", "unknown")
+
+            if tool_name not in global_missing_tools:
+                global_missing_tools[tool_name] = {
+                    "tool_name": tool_name,
+                    "request_count": 0,
+                    "sessions_affected": [],
+                    "first_requested": None,
+                    "last_requested": None,
+                    "requesting_agents": [],
+                }
+
+            global_tool_data = global_missing_tools[tool_name]
+            global_tool_data["request_count"] += tool_data.get("request_count", 0)
+
+            # Track session
+            if session_id not in global_tool_data["sessions_affected"]:
+                global_tool_data["sessions_affected"].append(session_id)
+
+            # Update timestamps
+            first_req = tool_data.get("first_requested")
+            last_req = tool_data.get("last_requested")
+
+            if first_req and (
+                not global_tool_data["first_requested"]
+                or first_req < global_tool_data["first_requested"]
+            ):
+                global_tool_data["first_requested"] = first_req
+
+            if last_req and (
+                not global_tool_data["last_requested"]
+                or last_req > global_tool_data["last_requested"]
+            ):
+                global_tool_data["last_requested"] = last_req
+
+            # Aggregate requesting agents
+            for agent_id in tool_data.get("requesting_agents", []):
+                agent_session_id = f"{session_id}:{agent_id}"
+                if agent_session_id not in global_tool_data["requesting_agents"]:
+                    global_tool_data["requesting_agents"].append(agent_session_id)
+
+    # Convert to sorted list (by request count, descending)
+    global_missing_tools_list = sorted(
+        global_missing_tools.values(), key=lambda x: x["request_count"], reverse=True
+    )
+
+    return {
+        "analysis_timestamp": datetime.now(UTC).isoformat(),
+        "total_sessions_analyzed": sessions_analyzed,
+        "total_missing_tools": len(global_missing_tools_list),
+        "total_failed_requests": total_failed_requests,
+        "missing_tools": global_missing_tools_list,
+    }
+
+
+# =============================================================================
 # TESTING MODE OVERRIDES
 # =============================================================================
 
@@ -2113,6 +2452,19 @@ if TESTING_MODE:
     cli_list_session_agents = _list_session_agents_cli_impl  # type: ignore[assignment]
     cli_get_agent_details = _get_agent_details_impl  # type: ignore[assignment]
 
+    # Missing tools functions (override FastMCP-wrapped functions for direct testing)
+    analyze_missing_tools = _analyze_missing_tools_impl  # type: ignore[assignment]
+
+    def _save_missing_tools_report_wrapper(session_id: str) -> str:
+        report_data = _analyze_missing_tools_impl(session_id)
+        if "error" in report_data:
+            return f"Error generating report: {report_data['error']}"
+        return _save_missing_tools_report_impl(session_id, report_data)
+
+    save_missing_tools_report = _save_missing_tools_report_wrapper  # type: ignore[assignment]
+    get_missing_tools_for_session = _load_missing_tools_report_impl  # type: ignore[assignment]
+    get_missing_tools_global = _aggregate_missing_tools_across_sessions_impl  # type: ignore[assignment]
+
 
 # =============================================================================
 # SERVER STARTUP
@@ -2125,13 +2477,15 @@ def main() -> None:
     logger.info(
         "Available tools: start_session, end_session, update_session_metadata, "
         "get_session_status, register_agent, get_agent_metadata, "
-        "log_agent_execution, log_tool_request, log_agent_interaction"
+        "log_agent_execution, log_tool_request, log_agent_interaction, "
+        "analyze_missing_tools, save_missing_tools_report"
     )
     logger.info(
         "Available CLI data access resources: "
         "notes://sessions/list/{query}, notes://sessions/get/{id}, "
         "notes://agents/list/{session_id}, notes://agents/get/{session_id}/{agent_id}, "
-        "notes://search/sessions/{search_term}"
+        "notes://search/sessions/{search_term}, "
+        "notes://tools/missing/{session_id}, notes://tools/missing"
     )
     logger.info(
         "Legacy compatibility resources: session://{id}, sessions://list, "
