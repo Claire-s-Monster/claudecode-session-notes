@@ -76,6 +76,9 @@ class ToolRequest(BaseModel):
     )
     success: bool = Field(description="Whether the tool execution succeeded")
     timestamp: str = Field(description="Request timestamp")
+    execution_time: float | None = Field(
+        None, description="Execution time in milliseconds"
+    )
 
 
 class AgentMetadata(BaseModel):
@@ -725,6 +728,7 @@ def _log_tool_request_impl(
     available: bool,
     parameters: dict[str, Any] | None = None,
     success: bool | None = None,
+    execution_time: float | None = None,
 ) -> str:
     """
     Internal implementation for logging tool request.
@@ -741,6 +745,7 @@ def _log_tool_request_impl(
         parameters=parameters or {},
         success=success if success is not None else available,
         timestamp=datetime.now(UTC).isoformat(),
+        execution_time=execution_time,
     )
 
     # Load existing tool request log
@@ -1052,7 +1057,7 @@ def get_agent_interaction_statistics(session_id: str, agent_id: str) -> dict[str
     for i in interactions:
         if isinstance(i, dict) and i.get("execution_time") is not None:
             exec_time = i.get("execution_time")
-            if isinstance(exec_time, (int, float)):
+            if isinstance(exec_time, int | float):
                 execution_times.append(float(exec_time))
     avg_execution_time = (
         sum(execution_times) / len(execution_times) if execution_times else None
@@ -1060,11 +1065,11 @@ def get_agent_interaction_statistics(session_id: str, agent_id: str) -> dict[str
 
     # Workflow and communication analysis
     workflow_stages = list(
-        set(
+        {
             i.get("workflow_stage")
             for i in interactions
             if isinstance(i, dict) and i.get("workflow_stage")
-        )
+        }
     )
 
     communication_count = sum(
@@ -1370,9 +1375,10 @@ def log_tool_request(
     available: bool,
     parameters: dict[str, Any] | None = None,
     success: bool | None = None,
+    execution_time: float | None = None,
 ) -> str:
     """
-    Log a tool request by an agent.
+    Log a tool request by an agent with optional execution timing data.
 
     Args:
         session_id: Session ID
@@ -1381,12 +1387,13 @@ def log_tool_request(
         available: Whether the tool was available
         parameters: Optional tool parameters
         success: Whether the tool execution succeeded (defaults to available)
+        execution_time: Optional execution time in milliseconds
 
     Returns:
         Logging confirmation
     """
     return _log_tool_request_impl(
-        session_id, agent_id, tool_name, available, parameters, success
+        session_id, agent_id, tool_name, available, parameters, success, execution_time
     )
 
 

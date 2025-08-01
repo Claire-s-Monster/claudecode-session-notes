@@ -269,12 +269,16 @@ class TestToolRequestValidation:
 
         request = ToolRequest(**data)
         serialized = request.model_dump()
-        assert serialized == data
+
+        # Verify that execution_time defaults to None
+        expected_data = data.copy()
+        expected_data["execution_time"] = None
+        assert serialized == expected_data
 
         # Test JSON serialization
         json_str = request.model_dump_json()
         loaded_data = json.loads(json_str)
-        assert loaded_data == data
+        assert loaded_data == expected_data
 
         # Test round-trip
         new_request = ToolRequest(**serialized)
