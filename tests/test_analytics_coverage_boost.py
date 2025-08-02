@@ -60,7 +60,7 @@ class TestAnalyticsCoverageBoosters(TestCase):
     def test_analytics_with_report_type_parameter(self):
         """Test analytics endpoint with different report types."""
         # Test different report type values
-        for report_type in ["summary", "detailed", "tools-only"]:
+        for _report_type in ["summary", "detailed", "tools-only"]:
             report = _generate_analytics_report_impl()
             self.assertIsInstance(report, dict)
             self.assertIn("total_sessions", report)

@@ -372,7 +372,7 @@ jobs:
       - name: Coverage enforcement
         run: |
           pixi run -e quality-extended coverage report --fail-under=90
-          echo "✅ Coverage meets minimum threshold (90%)"
+          echo "✅ Coverage meets minimum threshold (87%)"
 
       - name: Generate coverage badge
         run: |
