@@ -201,7 +201,7 @@ env = { PYTHONNOUSERSITE = "1" }
 python = ">=3.12,<3.14"  # Pin range to avoid surprise updates
 pip = "*"  # Required for pixi-dependencies integration
 hatchling = ">=1.18.0"  # Required for editable installs
-fastmcp = ">=2.10.6,<3"
+fastmcp = "*"
 pydantic = ">=2.10"  # Data validation (required by FastMCP)
 
 [tool.pixi.pypi-dependencies]
