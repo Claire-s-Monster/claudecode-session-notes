@@ -79,8 +79,55 @@ python -m session_notes.server
 ## 🔧 MCP Integration
 
 ### Claude Desktop Configuration
+
+#### **Recommended (PIXI - Production Ready)**
 Add to your `~/.claude_desktop_config.json`:
 
+```json
+{
+  "mcpServers": {
+    "session-notes": {
+      "command": "pixi",
+      "args": ["run", "-e", "quality", "server"],
+      "cwd": "/path/to/claudecode-session-notes"
+    }
+  }
+}
+```
+
+#### **Alternative Configurations**
+
+**Development Mode** (with debug logging):
+```json
+{
+  "mcpServers": {
+    "session-notes": {
+      "command": "pixi", 
+      "args": ["run", "-e", "quality", "server"],
+      "cwd": "/path/to/claudecode-session-notes",
+      "env": {
+        "PYTHONPATH": "src",
+        "CLAUDE_DEBUG": "1"
+      }
+    }
+  }
+}
+```
+
+**Minimal Runtime** (fastest startup):
+```json
+{
+  "mcpServers": {
+    "session-notes": {
+      "command": "pixi",
+      "args": ["run", "server"],
+      "cwd": "/path/to/claudecode-session-notes"
+    }
+  }
+}
+```
+
+**Legacy Python** (fallback option):
 ```json
 {
   "mcpServers": {
@@ -92,6 +139,8 @@ Add to your `~/.claude_desktop_config.json`:
   }
 }
 ```
+
+> **💡 Why PIXI?** Using PIXI commands ensures reproducible environments, exact dependency versions from `pixi.lock`, and optimal FastMCP 2.0 integration with conda-forge packages.
 
 ### Available MCP Tools
 
