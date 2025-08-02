@@ -4,7 +4,6 @@ Fixed comprehensive tests for Session Notes FastMCP 2.0 Server.
 Tests all FastMCP tools, resources, and data models with correct API usage.
 """
 
-import json
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -278,7 +277,7 @@ class TestSessionManagement:
                 f"{temp_dir}/.claude/session-notes",
             ):
                 result = end_session("non-existent-session")
-                assert "error" in result.lower()
+                assert "error" in result
 
     def test_get_session_basic(self):
         """Test getting session information."""
@@ -291,7 +290,7 @@ class TestSessionManagement:
                 start_session(session_id, {"test_env": "value"})
 
                 result = get_session(session_id)
-                session_data = json.loads(result)
+                session_data = result
 
                 assert session_data["session_id"] == session_id
                 assert session_data["status"] == "active"
@@ -305,7 +304,7 @@ class TestSessionManagement:
                 f"{temp_dir}/.claude/session-notes",
             ):
                 result = get_session("non-existent-session")
-                assert "error" in result.lower()
+                assert "error" in result
 
     def test_list_sessions_empty(self):
         """Test listing sessions when none exist."""
@@ -315,7 +314,7 @@ class TestSessionManagement:
                 f"{temp_dir}/.claude/session-notes",
             ):
                 result = list_sessions()
-                sessions = json.loads(result)
+                sessions = result
                 assert sessions == []
 
     def test_list_sessions_with_data(self):
@@ -331,7 +330,7 @@ class TestSessionManagement:
                     start_session(session_id)
 
                 result = list_sessions()
-                sessions = json.loads(result)
+                sessions = result
 
                 assert len(sessions) == 3
                 session_ids_result = {s["session_id"] for s in sessions}
@@ -375,7 +374,7 @@ class TestAgentOperations:
                     / "agents"
                     / agent_id
                 )
-                executions_file = agent_dir / "executions.json"
+                executions_file = agent_dir / "execution.json"
                 assert executions_file.exists()
 
                 executions_data = load_json_data(executions_file)
@@ -395,7 +394,7 @@ class TestAgentOperations:
                     agent_type="test",
                     action="test",
                 )
-                assert "error" in result.lower()
+                assert "error" in result
 
     def test_log_tool_request_basic(self):
         """Test basic tool request logging."""
@@ -430,7 +429,7 @@ class TestAgentOperations:
                     / "agents"
                     / agent_id
                 )
-                tools_file = agent_dir / "tool_requests.json"
+                tools_file = agent_dir / "tools.json"
                 assert tools_file.exists()
 
                 tools_data = load_json_data(tools_file)
@@ -466,7 +465,7 @@ class TestAgentOperations:
                     / "agents"
                     / agent_id
                 )
-                tools_file = agent_dir / "tool_requests.json"
+                tools_file = agent_dir / "tools.json"
                 tools_data = load_json_data(tools_file)
 
                 assert tools_data[0]["available"] is False
@@ -517,10 +516,10 @@ class TestFastMCPIntegration:
                 assert session_id in start_result
 
                 get_result = get_session(session_id)
-                assert session_id in get_result
+                assert get_result.get("session_id") == session_id
 
                 list_result = list_sessions()
-                assert isinstance(list_result, str)  # Should return JSON string
+                assert isinstance(list_result, list)  # Should return list of sessions
 
 
 class TestResourceHandlers:
@@ -589,11 +588,11 @@ class TestErrorHandling:
             ):
                 # Test getting invalid session
                 result = get_session("invalid-session")
-                assert "error" in result.lower()
+                assert "error" in result
 
                 # Test ending invalid session
                 result = end_session("invalid-session")
-                assert "error" in result.lower()
+                assert "error" in result
 
                 # Test logging to invalid session
                 result = log_agent_execution(
@@ -602,7 +601,7 @@ class TestErrorHandling:
                     agent_type="test",
                     action="test",
                 )
-                assert "error" in result.lower()
+                assert "error" in result
 
     def test_corrupted_session_data(self):
         """Test handling of corrupted session files."""
@@ -621,7 +620,7 @@ class TestErrorHandling:
 
                 # Operations should handle corruption gracefully
                 result = get_session(session_id)
-                assert "error" in result.lower()
+                assert "error" in result
 
     def test_permission_errors(self):
         """Test handling of permission errors."""

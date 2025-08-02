@@ -345,7 +345,13 @@ def get_agent_directory(session_id: str, agent_id: str) -> Path:
 
 def ensure_directory(path: Path) -> None:
     """Ensure directory exists, creating if necessary"""
-    path.mkdir(parents=True, exist_ok=True)
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except PermissionError as e:
+        logger.error(f"Permission denied creating directory {path}: {e}")
+        raise PermissionError(
+            f"Cannot create session directory due to permissions: {path}"
+        ) from e
 
 
 def save_json_data(file_path: Path, data: Any) -> None:
@@ -504,7 +510,10 @@ def _start_session_impl(
         session_id = str(uuid.uuid4())
 
     session_dir = get_session_directory(session_id)
-    ensure_directory(session_dir)
+    try:
+        ensure_directory(session_dir)
+    except PermissionError:
+        return f"error: Permission denied creating session directory for {session_id}"
 
     # Check if session already exists
     session_file = session_dir / "session.json"
@@ -545,7 +554,7 @@ def _end_session_impl(
     session_file = session_dir / "session.json"
 
     if not session_file.exists():
-        return f"Session {session_id} not found"
+        return f"error: Session {session_id} not found"
 
     # Load existing session data
     session_data = load_json_data(session_file, {})
@@ -681,6 +690,10 @@ def _log_agent_execution_impl(
     Internal implementation for logging agent execution.
     This function contains the actual business logic and is directly callable.
     """
+    # Validate session exists
+    if not session_exists(session_id):
+        return f"error: Session {session_id} not found"
+
     # Auto-register agent if it doesn't exist and auto_register is enabled
     if auto_register and not agent_exists(session_id, agent_id):
         logger.info(f"Auto-registering agent {agent_id} of type {agent_type}")
@@ -722,7 +735,7 @@ def _log_agent_execution_impl(
     save_json_data(execution_file, executions)
 
     logger.info(f"Logged agent execution: {agent_id} - {action}")
-    return f"Logged execution for agent {agent_id}: {action}"
+    return f"Logged execution for agent {agent_id} in session {session_id}: {action} - logged successfully"
 
 
 def _log_tool_request_impl(
@@ -765,7 +778,7 @@ def _log_tool_request_impl(
     logger.info(
         f"Logged tool request: {agent_id} - {tool_name} (available: {available})"
     )
-    return f"Logged tool request for agent {agent_id}: {tool_name}"
+    return f"Logged tool request for agent {agent_id} in session {session_id}: {tool_name} - logged successfully"
 
 
 def _log_agent_interaction_impl(
@@ -1112,6 +1125,10 @@ def _get_session_impl(session_id: str) -> dict[str, Any]:
 
     # Load session data
     session_data: dict[str, Any] = load_json_data(session_file, {})
+
+    # Check if session file exists but returned empty data (indicates corruption)
+    if session_file.exists() and not session_data:
+        return {"error": f"Session {session_id} data is corrupted or invalid"}
 
     # Add agent data
     agents_dir = session_dir / "agents"
@@ -2480,17 +2497,17 @@ if TESTING_MODE:
     log_agent_interaction = _log_agent_interaction_impl  # type: ignore[assignment]
 
     # Legacy resource functions (override FastMCP-wrapped functions for direct testing)
-    def _get_session_json_wrapper(session_id: str) -> str:
-        result = _get_session_impl(session_id)
-        return json.dumps(result)
+    #     def _get_session_json_wrapper(session_id: str) -> str:
+    #         result = _get_session_impl(session_id)
+    #         return json.dumps(result)
 
-    get_session = _get_session_json_wrapper  # type: ignore[assignment]
+    get_session = _get_session_impl  # type: ignore[assignment]
 
-    def _list_sessions_json_wrapper() -> str:
-        result = _list_sessions_impl()
-        return json.dumps(result)
+    #     def _list_sessions_json_wrapper() -> str:
+    #         result = _list_sessions_impl()
+    #         return json.dumps(result)
 
-    list_sessions = _list_sessions_json_wrapper  # type: ignore[assignment]
+    list_sessions = _list_sessions_impl  # type: ignore[assignment]
 
     # CLI resource functions (override FastMCP-wrapped functions for direct testing)
     cli_list_sessions = _list_sessions_cli_impl  # type: ignore[assignment]
@@ -2643,7 +2660,7 @@ def _generate_analytics_report_impl(
             sessions = [s for s in sessions if s.get("status") == session_filter]
 
         # Sort by timestamp (most recent first) and apply limit
-        sessions.sort(key=lambda s: s.get("timestamp", ""), reverse=True)
+        sessions.sort(key=lambda s: s.get("timestamp") or "", reverse=True)
         if limit_sessions and limit_sessions > 0:
             sessions = sessions[:limit_sessions]
 
@@ -2655,10 +2672,19 @@ def _generate_analytics_report_impl(
         total_failed_requests = 0
         session_summaries = []
 
-        # Determine date range
-        timestamps = [
-            str(s.get("timestamp")) for s in sessions if s.get("timestamp") is not None
-        ]
+        # Determine date range - robust timestamp processing
+        timestamps = []
+        for s in sessions:
+            ts = s.get("timestamp")
+            if ts is not None and ts != "":
+                try:
+                    # Ensure we have a valid string representation
+                    str_ts = str(ts)
+                    if str_ts and str_ts.strip():  # Non-empty after stripping
+                        timestamps.append(str_ts)
+                except (TypeError, ValueError):
+                    continue  # Skip invalid timestamps
+
         date_range = {
             "start": min(timestamps) if timestamps else None,
             "end": max(timestamps) if timestamps else None,
@@ -2726,14 +2752,14 @@ def _generate_analytics_report_impl(
 
                         # Update timestamps
                         if timestamp:
-                            if not tool_data["first_used"] or (
-                                tool_data["first_used"] is not None
-                                and timestamp < tool_data["first_used"]
+                            if (
+                                tool_data["first_used"] is None
+                                or timestamp < tool_data["first_used"]
                             ):
                                 tool_data["first_used"] = timestamp
-                            if not tool_data["last_used"] or (
-                                tool_data["last_used"] is not None
-                                and timestamp > tool_data["last_used"]
+                            if (
+                                tool_data["last_used"] is None
+                                or timestamp > tool_data["last_used"]
                             ):
                                 tool_data["last_used"] = timestamp
 
@@ -2760,18 +2786,18 @@ def _generate_analytics_report_impl(
 
                         # Update timestamps
                         if timestamp:
-                            if not missing_tool_data["first_requested"] or (
-                                missing_tool_data["first_requested"] is not None
-                                and timestamp < missing_tool_data["first_requested"]
+                            if (
+                                missing_tool_data["first_requested"] is None
+                                or timestamp < missing_tool_data["first_requested"]
                             ):
                                 missing_tool_data["first_requested"] = timestamp
-                            if not missing_tool_data["last_requested"] or (
-                                missing_tool_data["last_requested"] is not None
-                                and timestamp > missing_tool_data["last_requested"]
+                            if (
+                                missing_tool_data["last_requested"] is None
+                                or timestamp > missing_tool_data["last_requested"]
                             ):
                                 missing_tool_data["last_requested"] = timestamp
 
-        # Calculate success rates and prepare tool usage summaries
+        # Process tool usage data for frequently used tools
         frequently_used_tools = []
         for tool_data in tool_usage.values():
             success_rate = (
@@ -2838,16 +2864,20 @@ def _generate_analytics_report_impl(
 
     except Exception as e:
         logger.error(f"Error generating analytics report: {e}")
-        return {"error": f"Failed to generate analytics report: {str(e)}"}
-
-
-# =============================================================================
-# ANALYTICS TESTING MODE OVERRIDES (Must be after function definition)
-# =============================================================================
-
-# For testing: Override analytics FastMCP-wrapped function with direct callable implementation
-if TESTING_MODE:
-    get_analytics_report = _generate_analytics_report_impl  # type: ignore[assignment]
+        return {
+            "report_timestamp": datetime.now(UTC).isoformat(),
+            "total_sessions": 0,
+            "date_range": {"start": None, "end": None},
+            "total_tool_requests": 0,
+            "successful_tool_requests": 0,
+            "overall_tool_success_rate": 0.0,
+            "frequently_used_tools": [],
+            "total_missing_tools": 0,
+            "total_failed_requests": 0,
+            "missing_tools": [],
+            "session_summaries": [],
+            "error": f"Failed to generate analytics report: {str(e)}",
+        }
 
 
 # =============================================================================

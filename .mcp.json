@@ -56,6 +56,19 @@
       "env": {
         "MCP_SERVER_ACTIVE": "true"
       }
+    },
+    "session-notes": {
+      "command": "pixi",
+      "args": [
+        "run",
+        "--manifest-path",
+        "/home/memento/ClaudeCode/Servers/session-notes/development",
+        "mcp-server"
+      ],
+      "env": {
+        "MCP_SERVER_ACTIVE": "true",
+        "PYTHONPATH": "src"
+      }
     }
   }
 }
