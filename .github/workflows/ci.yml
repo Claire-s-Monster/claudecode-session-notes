@@ -30,28 +30,9 @@ jobs:
   setup:
     name: "Setup & Dependency Caching"
     runs-on: ubuntu-latest
-    outputs:
-      cache-key: ${{ steps.cache-key.outputs.key }}
-      pixi-cache-hit: ${{ steps.pixi-cache.outputs.cache-hit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Generate cache key
-        id: cache-key
-        run: |
-          echo "key=pixi-${{ runner.os }}-${{ hashFiles('pixi.lock') }}" >> $GITHUB_OUTPUT
-
-      - name: Cache PIXI environment
-        id: pixi-cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pixi
-            .pixi/envs
-          key: ${{ steps.cache-key.outputs.key }}
-          restore-keys: |
-            pixi-${{ runner.os }}-
 
       - name: Setup PIXI
         uses: prefix-dev/setup-pixi@v0.8.14
@@ -65,7 +46,6 @@ jobs:
           pixi info
 
       - name: Install CI environment
-        if: steps.pixi-cache.outputs.cache-hit != 'true'
         run: |
           pixi install -e ci
           pixi run -e ci dev-setup
@@ -90,7 +70,6 @@ jobs:
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
-
 
       - name: Install CI environment
         run: |
@@ -192,7 +171,6 @@ jobs:
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
-
 
       - name: Install CI environment
         run: |
