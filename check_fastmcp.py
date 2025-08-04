@@ -1,1 +1,1 @@
-import fastmcp; print('FastMCP available')
+print("FastMCP works")
