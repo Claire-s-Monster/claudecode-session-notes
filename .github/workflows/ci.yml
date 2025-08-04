@@ -483,8 +483,8 @@ jobs:
           app  # Initialize app
 
           current, peak = tracemalloc.get_traced_memory()
-          print(f'Current memory usage: {current / 1024 / 1024:.1f} MB')
-          print(f'Peak memory usage: {peak / 1024 / 1024:.1f} MB')
+          print(f\"Current memory usage: {current / 1024 / 1024:.1f} MB\")
+          print(f\"Peak memory usage: {peak / 1024 / 1024:.1f} MB\")
 
           if peak > 100 * 1024 * 1024:  # 100MB threshold
               print('⚠️ High memory usage detected')
