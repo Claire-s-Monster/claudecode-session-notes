@@ -400,7 +400,7 @@ jobs:
 
       - name: Generate coverage badge
         run: |
-          pixi run -e quality-extended coverage-badge -o coverage-badge.svg
+          pixi run -e ci coverage-badge -o coverage-badge.svg
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
