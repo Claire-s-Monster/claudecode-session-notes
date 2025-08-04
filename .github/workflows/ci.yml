@@ -20,7 +20,7 @@ on:
 
 env:
   PYTHONNOUSERSITE: 1
-  PIXI_VERSION: v0.49.0  # Aligned with local development version to prevent dependency resolution differences
+  PIXI_VERSION: v0.50.2  # Latest stable PIXI version (updated 2025-07-28) for better performance and bug fixes
   PYTHON_VERSION: "3.12"
 
 jobs:
@@ -35,20 +35,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
       - name: Verify PIXI installation
+        timeout-minutes: 5
         run: |
+          echo "📋 PIXI Installation Verification"
           pixi --version
           pixi info
+          echo "✅ PIXI setup completed successfully"
 
       - name: Install CI environment
+        timeout-minutes: 15
         run: |
-          pixi install -e ci
+          echo "📦 Installing CI environment dependencies..."
+          pixi install -e ci --verbose
+          echo "🔧 Running development setup..."
           pixi run -e ci dev-setup
+          echo "✅ CI environment ready"
 
   # =============================================================================
   # QUALITY GATES - ZERO TOLERANCE POLICY
@@ -66,15 +74,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
       - name: Install CI environment
+        timeout-minutes: 15
         run: |
-          pixi install -e ci
+          echo "📦 Installing CI environment dependencies..."
+          pixi install -e ci --verbose
+          echo "🔧 Running development setup..."
           pixi run -e ci dev-setup
+          echo "✅ CI environment ready"
 
       - name: Run ${{ matrix.check }}
         run: |
@@ -112,16 +125,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
 
       - name: Install quality-extended environment
+        timeout-minutes: 20
         run: |
-          pixi install -e quality-extended
+          echo "📦 Installing quality-extended environment dependencies..."
+          pixi install -e quality-extended --verbose
+          echo "🔧 Running development setup..."
           pixi run -e quality-extended dev-setup
+          echo "✅ Quality-extended environment ready"
 
       - name: Run Bandit security scan
         run: |
@@ -167,15 +185,20 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
       - name: Install CI environment
+        timeout-minutes: 15
         run: |
-          pixi install -e ci
+          echo "📦 Installing CI environment dependencies..."
+          pixi install -e ci --verbose
+          echo "🔧 Running development setup..."
           pixi run -e ci dev-setup
+          echo "✅ CI environment ready"
 
       - name: Validate MCP server startup
         run: |
@@ -295,10 +318,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
 
       - name: Install ${{ matrix.environment }} environment
@@ -350,10 +374,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
 
       - name: Download test results
@@ -362,9 +387,13 @@ jobs:
           name: test-results
 
       - name: Install quality-extended environment
+        timeout-minutes: 20
         run: |
-          pixi install -e quality-extended
+          echo "📦 Installing quality-extended environment dependencies..."
+          pixi install -e quality-extended --verbose
+          echo "🔧 Running development setup..."
           pixi run -e quality-extended dev-setup
+          echo "✅ Quality-extended environment ready"
 
       - name: Generate comprehensive coverage report
         run: |
@@ -409,16 +438,21 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
 
       - name: Install quality-extended environment
+        timeout-minutes: 20
         run: |
-          pixi install -e quality-extended
+          echo "📦 Installing quality-extended environment dependencies..."
+          pixi install -e quality-extended --verbose
+          echo "🔧 Running development setup..."
           pixi run -e quality-extended dev-setup
+          echo "✅ Quality-extended environment ready"
 
       - name: MCP server startup performance
         run: |
@@ -485,10 +519,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup PIXI
-        uses: prefix-dev/setup-pixi@v0.8.14
+        uses: prefix-dev/setup-pixi@v0.8.13
         with:
           pixi-version: ${{ env.PIXI_VERSION }}
           cache: true
+          cache-write: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
 
       - name: Check for outdated dependencies
         run: |
