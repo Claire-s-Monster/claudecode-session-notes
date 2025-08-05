@@ -201,12 +201,14 @@ env = { PYTHONNOUSERSITE = "1" }
 python = ">=3.12,<3.14"  # Pin range to avoid surprise updates (currently resolving to 3.13.5)
 pip = "*"  # Required for pixi-dependencies integration
 hatchling = ">=1.18.0"  # Required for editable installs
-fastmcp = "*"
+setuptools = "*"  # Required for pkg_resources
 pydantic = ">=2.10"  # Data validation (required by FastMCP)
 
 [tool.pixi.pypi-dependencies]
 # Install project in editable mode
 session-notes = { path = ".", editable = true }
+# FastMCP framework (only available via PyPI)
+fastmcp = "*"
 
 # =============================================================================
 # TIERED QUALITY FEATURES (CI Framework Best Practice)
