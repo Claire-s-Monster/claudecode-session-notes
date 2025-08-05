@@ -200,89 +200,80 @@ jobs:
         run: |
           echo "Testing FastMCP 2.0 server startup..."
           # Test server can initialize without hanging
-          timeout 5s pixi run -e ci python -c "
+          timeout 5s pixi run -e ci python -c '
           import sys
-          sys.path.insert(0, 'src')
+          sys.path.insert(0, "src")
           from session_notes.server import main
-          print('Server main function imported successfully')
-          print('MCP server startup validation complete')
-          " || echo "✅ Server startup test completed (expected timeout)"
+          print("Server main function imported successfully")
+          print("MCP server startup validation complete")
+          ' || echo "✅ Server startup test completed (expected timeout)"
 
       - name: Validate FastMCP server functionality
         run: |
           echo "Validating FastMCP 2.0 server functionality..."
-          pixi run -e ci python -c "
+          pixi run -e ci python -c '
           import sys
-          sys.path.insert(0, 'src')
+          sys.path.insert(0, "src")
           from session_notes.server import app
-
-          # Test that FastMCP app imports and initializes correctly
-          print(f'FastMCP app initialized: {app.name}')
-
-          # Test basic functionality by checking if tools are accessible through the app
+          
+          print("FastMCP app initialized:", app.name)
+          
           try:
-              # Functional test - verify key tools are available by attempting imports
               from session_notes.server import (
                   start_session, end_session, log_agent_execution,
                   log_tool_request, register_agent
               )
-              print('Core tools successfully imported and available')
+              print("Core tools successfully imported and available")
           except ImportError as e:
-              print(f'Core tool import failed: {e}')
+              print("Core tool import failed:", str(e))
               sys.exit(1)
-
-          # Test that data models are properly defined
+          
           from session_notes.server import SessionInfo, AgentExecution, ToolRequest
-          print('Data models successfully imported')
-
-          # Test that utility functions are available
+          print("Data models successfully imported")
+          
           from session_notes.server import (
               get_session_directory, save_json_data, load_json_data
           )
-          print('Utility functions successfully imported')
-
-          print('FastMCP server validation complete')
-          # Force cache refresh after API fix
-          "
+          print("Utility functions successfully imported")
+          
+          print("FastMCP server validation complete")
+          '
 
       - name: Test Pydantic model validation
         run: |
           echo "Testing Pydantic model validation..."
-          python -c "
+          python -c '
           import sys
-          sys.path.insert(0, 'src')
+          sys.path.insert(0, "src")
           from session_notes.server import SessionInfo, AgentExecution, ToolRequest
           from datetime import datetime, UTC
 
-          # Test SessionInfo
-          session = SessionInfo(session_id='test', timestamp=datetime.now(UTC).isoformat())
-          print(f'SessionInfo validation: {session.session_id}')
+          session = SessionInfo(session_id="test", timestamp=datetime.now(UTC).isoformat())
+          print("SessionInfo validation:", session.session_id)
 
-          # Test AgentExecution
           execution = AgentExecution(
-              agent_id='test-agent',
-              agent_type='test',
+              agent_id="test-agent",
+              agent_type="test",
               timestamp=datetime.now(UTC).isoformat(),
-              action='test-action'
+              action="test-action"
           )
-          print(f'AgentExecution validation: {execution.agent_id}')
+          print("AgentExecution validation:", execution.agent_id)
 
-          # Test ToolRequest
           tool_req = ToolRequest(
-              tool_name='test-tool',
+              tool_name="test-tool",
               available=True,
               success=True,
               timestamp=datetime.now(UTC).isoformat()
           )
-          print(f'ToolRequest validation: {tool_req.tool_name}')
-          "
+          print("ToolRequest validation:", tool_req.tool_name)
+          '
 
       - name: Test file storage operations
         run: |
           echo "Testing file storage operations..."
-          python -c "
+          python -c '
           import sys
-          sys.path.insert(0, 'src')
+          sys.path.insert(0, "src")
           from session_notes.server import get_session_directory, save_json_data, load_json_data, ensure_directory
           from pathlib import Path
           import tempfile
@@ -291,22 +282,20 @@ jobs:
           with tempfile.TemporaryDirectory() as tmpdir:
               os.chdir(tmpdir)
 
-              # Test directory creation
-              session_dir = get_session_directory('test-session')
+              session_dir = get_session_directory("test-session")
               ensure_directory(session_dir)
-              assert session_dir.exists(), 'Session directory not created'
-              print('Directory creation works')
+              assert session_dir.exists(), "Session directory not created"
+              print("Directory creation works")
 
-              # Test JSON operations
-              test_data = {'test': 'data', 'number': 42}
-              json_file = session_dir / 'test.json'
+              test_data = {"test": "data", "number": 42}
+              json_file = session_dir / "test.json"
               save_json_data(json_file, test_data)
-              assert json_file.exists(), 'JSON file not created'
+              assert json_file.exists(), "JSON file not created"
 
               loaded_data = load_json_data(json_file)
-              assert loaded_data == test_data, 'JSON data mismatch'
-              print('JSON operations work')
-          "
+              assert loaded_data == test_data, "JSON data mismatch"
+              print("JSON operations work")
+          '
 
   # =============================================================================
   # MULTI-ENVIRONMENT TESTING
@@ -360,12 +349,12 @@ jobs:
         run: |
           echo "Auditing ${{ matrix.environment }} environment dependencies..."
           pixi list -e ${{ matrix.environment }}
-          pixi run -e ${{ matrix.environment }} python -c "
+          pixi run -e ${{ matrix.environment }} python -c '
           import sys
           import pkg_resources
-          print(f'Python version: {sys.version}')
-          print(f'Installed packages: {len(list(pkg_resources.working_set))}')
-          "
+          print("Python version:", sys.version)
+          print("Installed packages:", len(list(pkg_resources.working_set)))
+          '
 
   # =============================================================================
   # TEST COVERAGE ANALYSIS
@@ -481,28 +470,26 @@ jobs:
       - name: Memory usage analysis
         run: |
           echo "Analyzing memory usage patterns..."
-          pixi run -e quality-extended python -c "
+          pixi run -e quality-extended python -c '
           import sys
-          sys.path.insert(0, 'src')
+          sys.path.insert(0, "src")
           import tracemalloc
           from session_notes.server import app
 
           tracemalloc.start()
-
-          # Simulate basic operations
           app  # Initialize app
-
           current, peak = tracemalloc.get_traced_memory()
-          print(f\"Current memory usage: {current / 1024 / 1024:.1f} MB\")
-          print(f\"Peak memory usage: {peak / 1024 / 1024:.1f} MB\")
+          
+          print("Current memory usage: {:.1f} MB".format(current / 1024 / 1024))
+          print("Peak memory usage: {:.1f} MB".format(peak / 1024 / 1024))
 
-          if peak > 100 * 1024 * 1024:  # 100MB threshold
-              print('High memory usage detected')
+          if peak > 100 * 1024 * 1024:
+              print("High memory usage detected")
           else:
-              print('Memory usage within acceptable limits')
+              print("Memory usage within acceptable limits")
 
           tracemalloc.stop()
-          "
+          '
 
       - name: Run benchmark tests
         if: contains(github.event.pull_request.labels.*.name, 'benchmark') || github.event_name == 'schedule'
