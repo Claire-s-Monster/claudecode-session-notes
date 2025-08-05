@@ -204,8 +204,8 @@ jobs:
           import sys
           sys.path.insert(0, 'src')
           from session_notes.server import main
-          print('✅ Server main function imported successfully')
-          print('✅ MCP server startup validation complete')
+          print('Server main function imported successfully')
+          print('MCP server startup validation complete')
           " || echo "✅ Server startup test completed (expected timeout)"
 
       - name: Validate FastMCP server functionality
@@ -217,7 +217,7 @@ jobs:
           from session_notes.server import app
 
           # Test that FastMCP app imports and initializes correctly
-          print(f'✅ FastMCP app initialized: {app.name}')
+          print(f'FastMCP app initialized: {app.name}')
 
           # Test basic functionality by checking if tools are accessible through the app
           try:
@@ -226,22 +226,22 @@ jobs:
                   start_session, end_session, log_agent_execution,
                   log_tool_request, register_agent
               )
-              print('✅ Core tools successfully imported and available')
+              print('Core tools successfully imported and available')
           except ImportError as e:
-              print(f'❌ Core tool import failed: {e}')
+              print(f'Core tool import failed: {e}')
               sys.exit(1)
 
           # Test that data models are properly defined
           from session_notes.server import SessionInfo, AgentExecution, ToolRequest
-          print('✅ Data models successfully imported')
+          print('Data models successfully imported')
 
           # Test that utility functions are available
           from session_notes.server import (
               get_session_directory, save_json_data, load_json_data
           )
-          print('✅ Utility functions successfully imported')
+          print('Utility functions successfully imported')
 
-          print('✅ FastMCP server validation complete')
+          print('FastMCP server validation complete')
           # Force cache refresh after API fix
           "
 
@@ -256,7 +256,7 @@ jobs:
 
           # Test SessionInfo
           session = SessionInfo(session_id='test', timestamp=datetime.now(UTC).isoformat())
-          print(f'✅ SessionInfo validation: {session.session_id}')
+          print(f'SessionInfo validation: {session.session_id}')
 
           # Test AgentExecution
           execution = AgentExecution(
@@ -265,7 +265,7 @@ jobs:
               timestamp=datetime.now(UTC).isoformat(),
               action='test-action'
           )
-          print(f'✅ AgentExecution validation: {execution.agent_id}')
+          print(f'AgentExecution validation: {execution.agent_id}')
 
           # Test ToolRequest
           tool_req = ToolRequest(
@@ -274,7 +274,7 @@ jobs:
               success=True,
               timestamp=datetime.now(UTC).isoformat()
           )
-          print(f'✅ ToolRequest validation: {tool_req.tool_name}')
+          print(f'ToolRequest validation: {tool_req.tool_name}')
           "
 
       - name: Test file storage operations
@@ -295,7 +295,7 @@ jobs:
               session_dir = get_session_directory('test-session')
               ensure_directory(session_dir)
               assert session_dir.exists(), 'Session directory not created'
-              print('✅ Directory creation works')
+              print('Directory creation works')
 
               # Test JSON operations
               test_data = {'test': 'data', 'number': 42}
@@ -305,7 +305,7 @@ jobs:
 
               loaded_data = load_json_data(json_file)
               assert loaded_data == test_data, 'JSON data mismatch'
-              print('✅ JSON operations work')
+              print('JSON operations work')
           "
 
   # =============================================================================
@@ -497,9 +497,9 @@ jobs:
           print(f\"Peak memory usage: {peak / 1024 / 1024:.1f} MB\")
 
           if peak > 100 * 1024 * 1024:  # 100MB threshold
-              print('⚠️ High memory usage detected')
+              print('High memory usage detected')
           else:
-              print('✅ Memory usage within acceptable limits')
+              print('Memory usage within acceptable limits')
 
           tracemalloc.stop()
           "
