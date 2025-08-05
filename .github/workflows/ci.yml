@@ -244,6 +244,7 @@ jobs:
           print('✅ Utility functions successfully imported')
 
           print('✅ FastMCP server validation complete')
+          # Force cache refresh after API fix
           "
 
       - name: Test Pydantic model validation
