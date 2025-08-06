@@ -270,9 +270,9 @@ jobs:
           pixi list -e ${{ matrix.environment }}
           pixi run -e ${{ matrix.environment }} python -c '
           import sys
-          import pkg_resources
+          import importlib.metadata
           print("Python version:", sys.version)
-          print("Installed packages:", len(list(pkg_resources.working_set)))
+          print("Installed packages:", len(list(importlib.metadata.distributions())))
           '
 
   # =============================================================================
@@ -398,7 +398,7 @@ jobs:
           tracemalloc.start()
           app  # Initialize app
           current, peak = tracemalloc.get_traced_memory()
-          
+
           print("Current memory usage: {:.1f} MB".format(current / 1024 / 1024))
           print("Peak memory usage: {:.1f} MB".format(peak / 1024 / 1024))
 
