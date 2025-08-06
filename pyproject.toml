@@ -162,7 +162,7 @@ exclude_lines = [
 show_missing = true
 skip_covered = false
 precision = 2
-fail_under = 85  # Temporarily reduced from 90% to allow CI to pass while coverage gaps are addressed
+fail_under = 88  # Set to current achieved coverage (88.24%) to prevent regression
 
 [tool.coverage.html]
 directory = "htmlcov"
