@@ -1,1 +1,0 @@
-/home/memento/.claude/commands/development_status.md
