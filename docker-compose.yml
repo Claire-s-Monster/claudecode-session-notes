@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    # TODO: Add environment variables for database configuration
+    # TODO: Add port mapping (e.g., ports: - "5432:5432")
+    # TODO: Add volume mounting for data persistence
+    # TODO: Add health checks
+    # TODO: Configure database name, user, and password
+    # TODO: Add initialization scripts if needed
+
+  redis:
+    image: redis:7-alpine
+    # TODO: Add port mapping (e.g., ports: - "6379:6379")
+    # TODO: Add volume mounting for data persistence
+    # TODO: Add Redis configuration file mounting
+    # TODO: Add health checks
+    # TODO: Configure Redis authentication if needed
+    # TODO: Add memory limits and other performance tuning
+
+# TODO: Add networks configuration for service communication
+# TODO: Add volumes section for persistent data storage
+# TODO: Add environment file configuration (.env integration)
+# TODO: Consider adding development vs production profiles
+# TODO: Add dependency management between services
+# TODO: Integration with PIXI environment variables
