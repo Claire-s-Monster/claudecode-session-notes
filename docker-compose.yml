@@ -14,8 +14,9 @@ services:
     # TODO: Add initialization scripts if needed
 
   redis:
-    image: redis:7-alpine
-    # TODO: Add port mapping (e.g., ports: - "6379:6379")
+    image: redis:7
+    ports:
+      - "6379:6379"
     # TODO: Add volume mounting for data persistence
     # TODO: Add Redis configuration file mounting
     # TODO: Add health checks
