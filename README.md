@@ -102,7 +102,7 @@ Add to your `~/.claude_desktop_config.json`:
 {
   "mcpServers": {
     "session-notes": {
-      "command": "pixi", 
+      "command": "pixi",
       "args": ["run", "-e", "quality", "server"],
       "cwd": "/path/to/claudecode-session-notes",
       "env": {
@@ -245,6 +245,288 @@ Session data is stored in a structured hierarchy under `.claude/session-notes/`:
 │           ├── tools.json         # Tool usage logs  
 │           └── interactions.json  # Behavioral data
 ```
+
+## 🐳 Docker Infrastructure
+
+The project includes production-ready Docker services for **PostgreSQL** and **Redis** to support advanced session persistence and caching capabilities.
+
+### 🚀 Quick Start
+
+**Start all services:**
+```bash
+docker compose up -d
+```
+
+**Verify services are running:**
+```bash
+docker compose ps
+```
+
+**View service logs:**
+```bash
+docker compose logs -f postgres
+docker compose logs -f redis
+```
+
+### 📋 Service Configuration
+
+#### PostgreSQL Database
+- **Image**: `postgres:15`
+- **Host**: `localhost` (from host system)
+- **Port**: `5432`
+- **Database**: `session_notes`
+- **Username**: `sessionuser`
+- **Password**: `session_secure_password_2024`
+- **Volume**: `postgres_data` (persistent storage)
+
+#### Redis Cache
+- **Image**: `redis:7`
+- **Host**: `localhost` (from host system)
+- **Port**: `6379`
+- **Authentication**: None (development setup)
+- **Volume**: `redis_data` (persistent storage)
+
+### 🔧 Connection Details
+
+#### PostgreSQL Connection
+```bash
+# Connection URL
+DATABASE_URL="postgresql://sessionuser:session_secure_password_2024@localhost:5432/session_notes"
+
+# Using psql command line
+psql -h localhost -p 5432 -U sessionuser -d session_notes
+
+# Environment variables (from .env file)
+POSTGRES_USER=sessionuser
+POSTGRES_PASSWORD=session_secure_password_2024
+POSTGRES_DB=session_notes
+```
+
+#### Redis Connection
+```bash
+# Connection URL
+REDIS_URL="redis://localhost:6379"
+
+# Using redis-cli command line
+redis-cli -h localhost -p 6379
+
+# Test connection
+redis-cli ping
+```
+
+### 🧪 Service Testing Commands
+
+#### Test PostgreSQL Connectivity
+```bash
+# Test database connection
+docker compose exec postgres psql -U sessionuser -d session_notes -c "SELECT version();"
+
+# Test from host system (requires psql installed)
+psql -h localhost -p 5432 -U sessionuser -d session_notes -c "SELECT version();"
+
+# Test using Python
+python -c "import psycopg2; conn = psycopg2.connect('postgresql://sessionuser:session_secure_password_2024@localhost:5432/session_notes'); print('PostgreSQL connection successful!'); conn.close()"
+```
+
+#### Test Redis Connectivity
+```bash
+# Test Redis connection
+docker compose exec redis redis-cli ping
+
+# Test from host system (requires redis-cli installed)
+redis-cli -h localhost -p 6379 ping
+
+# Test using Python
+python -c "import redis; r = redis.Redis(host='localhost', port=6379); print(f'Redis connection successful! Response: {r.ping()}')"
+```
+
+### 🛠️ Service Management
+
+#### Start Services
+```bash
+# Start all services in background
+docker compose up -d
+
+# Start specific service
+docker compose up -d postgres
+docker compose up -d redis
+```
+
+#### Stop Services
+```bash
+# Stop all services
+docker compose down
+
+# Stop specific service
+docker compose stop postgres
+docker compose stop redis
+```
+
+#### Restart Services
+```bash
+# Restart all services
+docker compose restart
+
+# Restart specific service
+docker compose restart postgres
+docker compose restart redis
+```
+
+#### View Service Status
+```bash
+# Check service status
+docker compose ps
+
+# View resource usage
+docker compose top
+```
+
+#### Access Service Logs
+```bash
+# View all service logs
+docker compose logs
+
+# Follow logs in real-time
+docker compose logs -f
+
+# View logs for specific service
+docker compose logs postgres
+docker compose logs redis
+
+# View last 50 lines of logs
+docker compose logs --tail 50 postgres
+```
+
+### 🔄 Data Persistence
+
+Both PostgreSQL and Redis use **persistent Docker volumes** to ensure data survives container restarts:
+
+```bash
+# List Docker volumes
+docker volume ls | grep feat-db-integration
+
+# Inspect volume details
+docker volume inspect feat-db-integration_postgres_data
+docker volume inspect feat-db-integration_redis_data
+```
+
+#### Backup & Restore
+
+**PostgreSQL Backup:**
+```bash
+# Create backup
+docker compose exec postgres pg_dump -U sessionuser session_notes > backup.sql
+
+# Restore from backup
+docker compose exec -T postgres psql -U sessionuser session_notes < backup.sql
+```
+
+**Redis Backup:**
+```bash
+# Create backup (Redis automatically saves to dump.rdb)
+docker compose exec redis redis-cli BGSAVE
+
+# Copy backup file from container
+docker compose cp redis:/data/dump.rdb ./redis_backup.rdb
+```
+
+### 🔧 Development Integration
+
+#### Environment Variables
+The Docker services integrate with the project's `.env` file:
+
+```bash
+# PostgreSQL configuration
+POSTGRES_USER=sessionuser
+POSTGRES_PASSWORD=session_secure_password_2024
+POSTGRES_DB=session_notes
+
+# Application database URL
+DATABASE_URL=postgresql://sessionuser:session_secure_password_2024@localhost:5432/session_notes
+REDIS_URL=redis://localhost:6379
+```
+
+#### Using Services in Development
+```bash
+# Start services before development
+docker compose up -d
+
+# Run development server with database access
+pixi run dev  # MCP server will connect to PostgreSQL and Redis
+
+# Stop services after development
+docker compose down
+```
+
+### 🚨 Troubleshooting
+
+#### Common Issues
+
+**Port Already in Use:**
+```bash
+# Check what's using the ports
+sudo lsof -i :5432  # PostgreSQL
+sudo lsof -i :6379  # Redis
+
+# Stop conflicting services
+sudo systemctl stop postgresql  # System PostgreSQL
+sudo systemctl stop redis       # System Redis
+```
+
+**Connection Refused:**
+```bash
+# Verify services are running
+docker compose ps
+
+# Check service logs
+docker compose logs postgres
+docker compose logs redis
+
+# Restart services
+docker compose restart
+```
+
+**Data Not Persisting:**
+```bash
+# Verify volumes exist
+docker volume ls | grep feat-db-integration
+
+# Check volume mount points
+docker compose exec postgres df -h /var/lib/postgresql/data
+docker compose exec redis df -h /data
+```
+
+#### Clean Restart
+```bash
+# Stop and remove all containers, networks (preserves volumes)
+docker compose down
+
+# Complete cleanup including volumes (⚠️ DELETES ALL DATA)
+docker compose down -v
+
+# Remove specific volumes only
+docker volume rm feat-db-integration_postgres_data
+docker volume rm feat-db-integration_redis_data
+```
+
+### 🏗️ Architecture Integration
+
+The Docker infrastructure supports the MCP server's advanced features:
+
+- **PostgreSQL**: Persistent session storage, agent metadata, complex analytics queries
+- **Redis**: High-performance caching, real-time metrics, session state management
+- **Docker Networking**: Seamless service communication via default bridge network
+- **Volume Management**: Data persistence across container lifecycles
+
+#### Production Considerations
+
+For production deployment, consider:
+
+1. **Security**: Add PostgreSQL authentication, Redis AUTH, network isolation
+2. **Performance**: Configure PostgreSQL connection pooling, Redis memory limits
+3. **Monitoring**: Add health checks, logging, metrics collection
+4. **Backup**: Automated backup schedules, off-site storage
+5. **High Availability**: Multi-node setup, load balancing, failover
 
 ## 🤝 Contributing
 
