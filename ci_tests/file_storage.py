@@ -2,16 +2,23 @@
 """File Storage Operations Test"""
 
 import sys
+
 sys.path.insert(0, "src")
+
 
 def main():
     print("Testing file storage operations...")
-    
+
     try:
-        from session_notes.server import get_session_directory, save_json_data, load_json_data, ensure_directory
-        from pathlib import Path
-        import tempfile
         import os
+        import tempfile
+
+        from session_notes.server import (
+            ensure_directory,
+            get_session_directory,
+            load_json_data,
+            save_json_data,
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             os.chdir(tmpdir)
@@ -29,13 +36,14 @@ def main():
             loaded_data = load_json_data(json_file)
             assert loaded_data == test_data, "JSON data mismatch"
             print("JSON operations work")
-        
+
         print("File storage operations complete")
         return 0
-        
+
     except Exception as e:
         print("Storage operations failed:", str(e))
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
