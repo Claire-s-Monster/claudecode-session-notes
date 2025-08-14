@@ -196,3 +196,5 @@ dev-debug.log
 # Task files
 # tasks.json
 # tasks/
+logs/
+tests/logs/

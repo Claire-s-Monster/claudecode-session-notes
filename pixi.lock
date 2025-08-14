@@ -3476,7 +3476,7 @@ packages:
 - pypi: ./
   name: session-notes
   version: 0.1.0
-  sha256: fb798f87bd4f194423802ee187e85940a6475a23d28fb20807397b46ee1197a3
+  sha256: 81b183c4bb2247985663dce5953bab40cd44ae7e2860700ec904912e1b2abfa5
   requires_python: '>=3.12'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-80.9.0-pyhff2d567_0.conda
