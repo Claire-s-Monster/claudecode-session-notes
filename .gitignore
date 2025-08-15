@@ -199,3 +199,6 @@ dev-debug.log
 logs/
 tests/logs/
 .mcp.json
+*-report.md
+*-summary.md
+*-analysis*.md
