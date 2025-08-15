@@ -198,3 +198,4 @@ dev-debug.log
 # tasks/
 logs/
 tests/logs/
+.mcp.json
