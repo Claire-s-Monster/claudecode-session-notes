@@ -291,7 +291,7 @@ quality-full = {features = ["quality", "quality-extended", "quality-ci"], solve-
 dev = {features = ["quality", "quality-extended", "quality-ci", "dev-specialized"], solve-group = "default"} # ~250s install
 
 # CI environment (optimized for CI performance)
-ci = {features = ["quality", "quality-ci"], solve-group = "ci-fast"}  # ~120s install - CI optimized
+ci = {features = ["quality", "quality-ci"], solve-group = "default"}  # ~120s install - CI optimized
 
 # =============================================================================
 # PIXI TASKS (Unified Best Practices from All Projects)
