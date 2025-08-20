@@ -116,7 +116,7 @@ jobs:
         timeout-minutes: 3
         run: |
           echo "🏷️ Running type checking"
-          pixi run -e quality typecheck
+          pixi run -e quality ci-typecheck
           echo "✅ Type checking completed"
 
       - name: Run code formatting check
