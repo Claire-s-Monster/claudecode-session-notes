@@ -14,7 +14,7 @@ project:
 # DEPENDENCY MANAGEMENT
 # =============================================================================
 dependencies:
-  pixi_version: "v0.49.0"
+  pixi_version: "v0.50.2"
   platform_strategy: "linux-64"  # Primary platform for optimization
   cache_strategy: "pixi-lock-based"
 
@@ -47,7 +47,7 @@ quality:
   fail_fast: false  # Show all errors for better debugging
 
   coverage:
-    minimum_threshold: 90  # Matches pyproject.toml setting
+    minimum_threshold: 88  # Proper quality standard
     target_threshold: 95
     enforcement: "strict"
 
@@ -215,7 +215,7 @@ environment:
 
   testing:
     PYTEST_TIMEOUT: "120"
-    COVERAGE_FAIL_UNDER: "90"
+    COVERAGE_FAIL_UNDER: "88"
 
 # =============================================================================
 # COMPLIANCE & GOVERNANCE

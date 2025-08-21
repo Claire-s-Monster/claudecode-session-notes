@@ -166,21 +166,23 @@ sessions/
 .session_notes/
 *.session
 
-# Claude Code session data (user-specific)
-.claude/session-notes/
-.claude/current-session-*
-.claude/last-session-state.json
-.claude/agent-scripts/
-.claude/agents/
+# Claude Code session data (user-specific) - ENTIRE DIRECTORY
+.claude/
 
 # Development artifacts
 *.backup
 *.corrupted
 *_debug.py
 *_simple.py
+test_*.py
+debug_*.py
+check_*.py
 testing_mode_section.txt
 *-analysis-report.md
 *-report.md
+github-workflow-integration-report.md
+fastmcp_validation_fix.py
+current-deps.json
 
 # Coverage reports
 coverage.json
@@ -194,3 +196,10 @@ dev-debug.log
 # Task files
 # tasks.json
 # tasks/
+logs/
+tests/logs/
+.mcp.json
+*-report.md
+*-summary.md
+*-analysis*.md
+# CI Debug - Sat Aug 16 09:34:01 AM CDT 2025
