@@ -70,7 +70,7 @@ git clone https://github.com/Claire-s-Monster/claudecode-session-notes.git
 cd claudecode-session-notes
 
 # Install in editable mode
-pixi install -e quality
+pixi install
 
 # Start the MCP server
 python -m session_notes.server
