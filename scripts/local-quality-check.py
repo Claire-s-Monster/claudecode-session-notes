@@ -7,15 +7,14 @@ Zero-tolerance policy enforcement for LOCAL development workflow.
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
 
 
 class LocalQualityGates:
     """LOCAL development quality gates with zero-tolerance policy."""
 
     def __init__(self):
-        self.results: Dict[str, bool] = {}
-        self.failed_checks: List[str] = []
+        self.results: dict[str, bool] = {}
+        self.failed_checks: list[str] = []
 
     def run_command(self, name: str, cmd: str, critical: bool = True) -> bool:
         """Run a quality check command and capture results."""

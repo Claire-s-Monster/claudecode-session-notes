@@ -8,9 +8,9 @@ for the session-notes FastMCP 2.0 project.
 
 import subprocess
 import sys
-import yaml
 from pathlib import Path
-from typing import List
+
+import yaml
 
 
 class CIValidator:
@@ -20,8 +20,8 @@ class CIValidator:
         self.project_root = project_root
         self.github_dir = project_root / ".github"
         self.workflows_dir = self.github_dir / "workflows"
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
 
     def error(self, message: str) -> None:
         """Record an error."""

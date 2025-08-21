@@ -196,3 +196,10 @@ dev-debug.log
 # Task files
 # tasks.json
 # tasks/
+logs/
+tests/logs/
+.mcp.json
+*-report.md
+*-summary.md
+*-analysis*.md
+# CI Debug - Sat Aug 16 09:34:01 AM CDT 2025
